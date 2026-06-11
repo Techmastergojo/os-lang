@@ -7,6 +7,7 @@ class Lexer:
         self.line = 1
         self.column = 1
         self.current = 0
+        self.indent_stack = [0]
 
     def is_at_end(self) -> bool:
         return self.current >= len(self.source)
@@ -35,11 +36,46 @@ class Lexer:
 
     def lex(self) -> List[Token]:
         tokens = []
+        is_at_line_start = True
+        
         while not self.is_at_end():
+            # Handle indentation at the start of a line
+            if is_at_line_start:
+                is_at_line_start = False
+                space_count = 0
+                
+                # Count spaces
+                while self.peek() == ' ' and not self.is_at_end():
+                    self.advance()
+                    space_count += 1
+                
+                # If the line is just empty or a comment, we ignore the indentation
+                if self.peek() == '\n' or self.peek() == '\r' or self.is_at_end():
+                    continue
+                    
+                if space_count > self.indent_stack[-1]:
+                    self.indent_stack.append(space_count)
+                    tokens.append(Token(TokenType.INDENT, "", self.line, 1))
+                elif space_count < self.indent_stack[-1]:
+                    while len(self.indent_stack) > 1 and space_count < self.indent_stack[-1]:
+                        self.indent_stack.pop()
+                        tokens.append(Token(TokenType.DEDENT, "", self.line, 1))
+                    
+                    if space_count != self.indent_stack[-1]:
+                        pass # Indentation error! We could throw an exception here
+                        
             start_col = self.column
             c = self.advance()
             
-            if c in [' ', '\t', '\r', '\n']:
+            if c in ['\r']:
+                continue
+                
+            if c == '\n':
+                tokens.append(Token(TokenType.NEWLINE, "\\n", self.line - 1, start_col))
+                is_at_line_start = True
+                continue
+                
+            if c in [' ', '\t']:
                 continue
                 
             if c.isalpha() or c == '_':
@@ -94,5 +130,10 @@ class Lexer:
             else:
                 pass # Unhandled characters for now
 
+        # EOF Cleanup
+        while len(self.indent_stack) > 1:
+            self.indent_stack.pop()
+            tokens.append(Token(TokenType.DEDENT, "", self.line, self.column))
+            
         tokens.append(Token(TokenType.EOF, "", self.line, self.column))
         return tokens
