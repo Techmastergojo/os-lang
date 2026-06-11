@@ -11,6 +11,7 @@ See: .planning/PROJECT.md
 
 ### Pending Todos
 - [ ] Initialize compiler implementation in host language (e.g., Python/Rust)
+- [ ] Break implementation into 100 micro tasks
 
 ### Technical Debt
 (None yet)
