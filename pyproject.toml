@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "os-lang"
+version = "0.1.0"
+authors = [
+  { name="Hamza", email="founder@nexus-os.org" },
+]
+description = "A next-generation Pythonic language for building bare-metal Operating Systems."
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Compilers",
+]
+dependencies = [
+    "llvmlite>=0.40.0",
+    "Flask>=2.0.0",
+]
+
+[project.scripts]
+osc = "src.main:main"
+osc-gui = "gui:main_gui"

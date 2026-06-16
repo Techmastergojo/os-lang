@@ -1,0 +1,30 @@
+# OS Language Coding Rules
+
+If you are asked to write or edit `.os` files, or to work with the custom OS development language in this repository, strictly adhere to these rules:
+
+1. **Python-like Syntax**: 
+   - No curly braces `{}`. Use indentation to denote blocks.
+   - No semicolons `;` at the end of lines.
+   - Function definitions use `fn name(args) -> RetType:`
+
+2. **Types**:
+   - Integers: `u8`, `u16`, `u32`, `u64`, `i8`, `i16`, `i32`, `i64`, `int`
+   - Pointers: `ptr` or `ptr[u32]`
+   - Strings/Chars: `str`, `char`
+
+3. **Variables**:
+   - Variables are immutable by default: `let x: u32 = 5`
+   - For mutable variables: `let mut y: u32 = 10`
+
+4. **Safety & Hardware**:
+   - Any function performing hardware I/O, manipulating pointers, using inline assembly, or atomics MUST be decorated with `@unsafe`.
+   - Inline assembly syntax: `asm("instruction")`
+   - Hardware-specific memory-mapped structs MUST use the `hwmap` keyword instead of `struct`. E.g., `hwmap Registers:`.
+
+5. **Decorators**:
+   - `@unsafe`: Explicitly declare a function unsafe.
+   - `@naked`: Remove standard LLVM function prologue and epilogue (useful for context switching).
+   - `@interrupt(n)`: Bind an interrupt vector.
+   - `@entry`: Bootloader/Kernel entry point.
+
+Follow these rules carefully to ensure the emitted `.os` code is syntactically and semantically valid for the compiler in this repository.
