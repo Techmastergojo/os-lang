@@ -21,9 +21,10 @@ This exposes two primary commands:
 The `osc` tool reads a `.os` source file and generates an LLVM Object File (`.o`).
 To compile an OS-Lang file for a bare-metal environment:
 ```bash
-osc kernel.os
+# Cross-compiling a freestanding x86_64 kernel stub
+osc kernel.os --target=x86_64-unknown-none --freestanding
 ```
-*Note: The LLVM output (`output.o`) is currently compiled for your host architecture. To compile for freestanding bootloaders, custom linking using `ld` and architecture-specific flags are required.*
+*Note: The LLVM output (`output.o`) requires custom linking using `ld` to map the kernel into memory appropriately for bootloaders like GRUB.*
 
 ---
 
@@ -52,7 +53,8 @@ As an OS language, memory footprint must be entirely predictable. There is no dy
 
 ### 3.1 Primitive Types
 - `i32`: 32-bit signed integer.
-- `u8`: 8-bit unsigned integer (commonly used for raw byte/character manipulation).
+- `u8`, `u16`, `u64`: Unsigned integers of 8, 16, and 64 bits respectively. Essential for explicit hardware manipulation (e.g., `u16` for VGA text mode attributes).
+- `usize`: Architecture-sized unsigned integer (32 or 64-bit), required for safe pointer offset arithmetic.
 - `ptr`: Raw memory pointer (architecture-dependent width, usually 32 or 64-bit).
 
 ### 3.2 Variable Declaration
@@ -102,10 +104,17 @@ OS-Lang has no garbage collector and no implicit memory safety overhead. The dev
 ### 6.1 The `@unsafe` Containment Model
 By default, the compiler prevents raw memory access. To read, write, or manipulate raw hardware addresses, developers must explicitly open an `@unsafe` context.
 
+> ### ⚠️ WARNING: Pointer Scaling Rules
+> 
+> Pointer arithmetic in OS-Lang scales automatically based on the size of the underlying type if a pointer is cast to a specific type view. When performing raw byte-offset arithmetic, always ensure the base pointer is evaluated or cast as a `u8` or a flat `ptr`.
+
 ```python
 def trigger_hardware():
-    var io_port: ptr = 0xCF8
+    # Explicitly cast hex literal to raw architecture-width pointer
+    var io_port: ptr = 0xCF8 as ptr
+    
     @unsafe:
+        # Dereferencing is explicitly fenced within the @unsafe boundary
         *io_port = 0x1
 ```
 *Note: The `*` token acts as the standard dereference operator for pointers.*
@@ -121,11 +130,11 @@ A `hwmap` binds a structured payload exactly onto a physical memory address at c
 
 ```python
 hwmap VGABuffer at 0xB8000:
-    video_memory: u8[4000]
+    video_memory: u16[2000]
 
 def print_a():
-    VGABuffer.video_memory[0] = 65
-    VGABuffer.video_memory[1] = 15
+    # 0x0F41 is the hexadecimal for a white 'A' on black background in VGA text mode
+    VGABuffer.video_memory[0] = 0x0F41
 ```
 **Constraints:**
 - The bound address must be known at compile time.
