@@ -14,6 +14,7 @@ setup(
             'osc-gui=gui:main_gui',
         ],
     },
-    author='Manus AI',
+    author="Hamza Tehseen Cheema",
+    author_email="founder@nexus-os.org",
     description='Next-Generation OS Development Language Compiler',
 )
