@@ -1,0 +1,30 @@
+{
+  "name": "os-lang-support",
+  "displayName": "OS Language Support",
+  "description": "Syntax highlighting and support for the OS Programming Language",
+  "version": "0.1.0",
+  "publisher": "Hamza",
+  "engines": {
+    "vscode": "^1.60.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "os",
+        "aliases": ["OS Language", "os"],
+        "extensions": [".os"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "os",
+        "scopeName": "source.os",
+        "path": "./syntaxes/os.tmLanguage.json"
+      }
+    ]
+  }
+}

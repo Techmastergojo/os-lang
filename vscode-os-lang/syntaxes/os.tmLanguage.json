@@ -1,0 +1,86 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "OS Language",
+  "patterns": [
+    { "include": "#keywords" },
+    { "include": "#strings" },
+    { "include": "#comments" },
+    { "include": "#numbers" },
+    { "include": "#types" },
+    { "include": "#decorators" },
+    { "include": "#functions" }
+  ],
+  "repository": {
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.os",
+          "match": "\\b(if|else|while|return|let|hwmap|pass|true|false|__asm__)\\b"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "support.type.os",
+          "match": "\\b(u8|u16|u32|u64|i8|i16|i32|i64|void)\\b"
+        }
+      ]
+    },
+    "decorators": {
+      "patterns": [
+        {
+          "name": "entity.name.function.decorator.os",
+          "match": "@\\w+"
+        }
+      ]
+    },
+    "functions": {
+      "patterns": [
+        {
+          "name": "keyword.other.fn.os",
+          "match": "\\bfn\\b"
+        },
+        {
+          "match": "\\b(fn)\\s+([a-zA-Z_]\\w*)",
+          "captures": {
+            "1": { "name": "keyword.other.fn.os" },
+            "2": { "name": "entity.name.function.os" }
+          }
+        },
+        {
+          "name": "support.function.builtin.os",
+          "match": "\\b(volatile_load|volatile_store|atomic_xchg|atomic_cmpxchg|atomic_add|atomic_sub)\\b"
+        }
+      ]
+    },
+    "strings": {
+      "name": "string.quoted.double.os",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.os",
+          "match": "\\\\."
+        }
+      ]
+    },
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.number-sign.os",
+          "match": "#.*$"
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.os",
+          "match": "\\b((0x[0-9a-fA-F]+)|([0-9]+))\\b"
+        }
+      ]
+    }
+  },
+  "scopeName": "source.os"
+}
