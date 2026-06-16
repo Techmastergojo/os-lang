@@ -1,160 +1,143 @@
-# OS Programming Language - Official Specification
+# OS-Lang: Official Language Specification & Master Reference
 
-## 1. Core Philosophy
-The language is designed to allow developers to build operating systems from scratch using a syntax as clean and readable as Python, but compiling down to bare-metal performance using LLVM. It eliminates the need to mix C and Assembly by providing hardware access through specialized, structured syntax.
+This document serves as the definitive reference guide for OS-Lang. It bridges the gap between Python-like readability and the uncompromising, raw hardware requirements of operating system development.
 
 ---
 
-## 2. Basic Syntax & Types
-The syntax uses Python-style indentation (spaces) instead of curly braces `{}` and avoids semicolons `;`.
+## 1. Environment Setup & Compiler Toolchain
 
-### Primitive Types
-- `int` (64-bit integer by default, with `u8`, `u16`, `u32`, `u64` for exact sizing)
-- `float` (64-bit float by default, with `f32`, `f64`)
-- `bool` (`true`, `false`)
-- `str` (UTF-8 string literals)
-- `char` (Single character)
+OS-Lang is designed as a standalone, hostless systems programming language. The compiler produces LLVM IR, which is subsequently assembled into raw machine binaries.
 
-### Variables & Mutability
-Variables are immutable by default. To make them mutable, use `mut`. Types are inferred but can be explicitly declared.
+### 1.1 Toolchain Installation
+The OS-Lang compiler suite can be installed globally via PyPI.
+```bash
+pip install os-lang
+```
+This exposes two primary commands:
+- `osc`: The command-line compiler.
+- `osc-gui`: A lightweight IDE and graphical compiler.
+
+### 1.2 The Build Pipeline
+The `osc` tool reads a `.os` source file and generates an LLVM Object File (`.o`).
+To compile an OS-Lang file for a bare-metal environment:
+```bash
+osc kernel.os
+```
+*Note: The LLVM output (`output.o`) is currently compiled for your host architecture. To compile for freestanding bootloaders, custom linking using `ld` and architecture-specific flags are required.*
+
+---
+
+## 2. Lexical Structure & Grammar
+
+OS-Lang relies heavily on a Pythonic, indentation-based grammar. 
+
+### 2.1 Indentation & Blocks
+Code blocks are defined purely by indentation (4 spaces). There are no curly braces `{}` or semicolons `;`.
 ```python
-let name = "OS"                 # Immutable, inferred as string
-let mut counter = 0             # Mutable, inferred as int
-let buffer: [u8] = [0, 0, 0]    # Array of 8-bit unsigned integers
+def example():
+    var a: i32 = 10
+    if a == 10:
+        a = 20
+```
+
+### 2.2 Keywords
+The language reserves the following core keywords: 
+`def`, `var`, `if`, `else`, `while`, `return`, `hwmap`, `at`, `@unsafe`.
+
+---
+
+## 3. Fixed-Width Type System
+
+As an OS language, memory footprint must be entirely predictable. There is no dynamic typing.
+
+### 3.1 Primitive Types
+- `i32`: 32-bit signed integer.
+- `u8`: 8-bit unsigned integer (commonly used for raw byte/character manipulation).
+- `ptr`: Raw memory pointer (architecture-dependent width, usually 32 or 64-bit).
+
+### 3.2 Variable Declaration
+Variables are strictly typed and defined using the `var` keyword.
+```python
+var counter: i32 = 0
+var status_flag: u8 = 1
 ```
 
 ---
 
-## 3. Control Flow
-Standard branching and looping mechanics.
-```python
-if counter > 10:
-    print("Done")
-elif counter == 5:
-    print("Halfway")
-else:
-    print("Keep going")
+## 4. Control Flow
 
+### 4.1 Conditional Statements
+Standard `if` and `else` branching is supported. Evaluation conditions must resolve cleanly.
+```python
+if counter == 0:
+    counter = 1
+else:
+    counter = 2
+```
+
+### 4.2 Looping Mechanisms
+Currently, the primary polling loop architecture relies on `while`. This is essential for hardware status polling (e.g., waiting for an I/O port to clear).
+```python
 while counter < 10:
     counter = counter + 1
 ```
 
 ---
 
-## 4. Functions
-Functions are declared with the `fn` keyword. Return types are required if returning a value, otherwise inferred as `void`.
+## 5. Functions & Signatures
+
+Functions must strictly annotate their argument types and return values. Type coercion is strictly banned at function boundaries to ensure Application Binary Interface (ABI) stability.
+
 ```python
-fn add(a: int, b: int) -> int:
+def add_numbers(a: i32, b: i32) -> i32:
     return a + b
 ```
 
 ---
 
-## 5. Data Structures: `struct` vs `hwmap`
-Our language splits data structures into two distinct concepts to separate application logic from raw hardware interaction.
+## 6. Low-Level Memory Management & `@unsafe`
 
-### Standard Structs (Application Logic)
-Optimized by the compiler for speed. Padding and alignment are handled automatically.
-```python
-struct UserContext:
-    id: int
-    name: str
-```
+OS-Lang has no garbage collector and no implicit memory safety overhead. The developer has total authority over memory.
 
-### Hardware Maps (Device Drivers)
-`hwmap` strictly maps exactly to the hardware bytes. It guarantees perfectly packed, byte-aligned, and volatile memory access—essential for talking to Network Cards, USB controllers, and PCI devices.
+### 6.1 The `@unsafe` Containment Model
+By default, the compiler prevents raw memory access. To read, write, or manipulate raw hardware addresses, developers must explicitly open an `@unsafe` context.
+
 ```python
-hwmap NetworkHeader:
-    mac_destination: [u8; 6]
-    mac_source:      [u8; 6]
-    eth_type:        u16
+def trigger_hardware():
+    var io_port: ptr = 0xCF8
+    @unsafe:
+        *io_port = 0x1
 ```
+*Note: The `*` token acts as the standard dereference operator for pointers.*
 
 ---
 
-## 6. Memory Management (Safe vs Unsafe)
-By default, the compiler enforces strict memory borrowing rules (similar to Rust) so you never get segfaults or memory leaks.
+## 7. Hardware Maps (`hwmap`)
 
-To build drivers and touch hardware, you must use an `@unsafe` block or tag. In these blocks, you can manipulate raw pointers.
+Writing bare-metal drivers requires constant interaction with structured memory (like VGA buffers, IDTs, or GDTs). Instead of relying on manual pointer arithmetic, OS-Lang provides `hwmap`.
+
+### 7.1 Declaring a Hardware Map
+A `hwmap` binds a structured payload exactly onto a physical memory address at compile time.
 
 ```python
-@unsafe
-fn write_to_vga(char: u8, position: int):
-    let vga_buffer_ptr: ptr[u8] = 0xB8000
-    vga_buffer_ptr[position] = char
+hwmap VGABuffer at 0xB8000:
+    video_memory: u8[4000]
+
+def print_a():
+    VGABuffer.video_memory[0] = 65
+    VGABuffer.video_memory[1] = 15
 ```
+**Constraints:**
+- The bound address must be known at compile time.
+- All mapped fields must have fixed, static hardware dimensions.
 
 ---
 
-## 7. Concurrency & Multi-core Safety
-The language eliminates Deadlocks and Race Conditions at compile time through built-in syntax, avoiding the clunkiness of external Mutex libraries.
+## 8. Compiler Diagnostics & Errors
 
-Data accessed across CPU cores must be declared `shared`. To modify it, you must enter a `lock` block. The compiler auto-generates the highly-optimized Spinlocks (for the kernel) or Mutexes (for user space) and guarantees they unlock when the block ends.
+The OS-Lang parser provides strict diagnostics for:
+- **Type Misalignments:** Trying to assign an `i32` to a `u8` without explicit casting.
+- **Unsafe Violations:** Attempting to dereference a `ptr` outside an `@unsafe` block.
+- **Indentation Faults:** Misaligned block structures will immediately halt code generation.
 
-```python
-shared let mut system_ticks = 0
-
-fn timer_interrupt():
-    lock system_ticks:
-        system_ticks += 1
-    # Automatically unlocked here. Cannot cause deadlocks!
-```
-
----
-
-## 8. OS & Hardware Operations
-The language provides built-in syntax for low-level concepts:
-- **Port I/O:** Reading/writing directly to CPU pins.
-- **Interrupts:** Binding functions to hardware interrupts.
-
-```python
-# Hardware Port Communication
-let key_code = hw.inb(0x60)     # Read byte from port 0x60 (Keyboard)
-
-# Interrupt Handlers
-@interrupt(33)                  # Bind to IRQ 1 (Keyboard)
-fn handle_keyboard_press():
-    let key = hw.inb(0x60)
-```
-
----
-
-## 9. Advanced CPU Control (Replacing Assembly)
-Our language eliminates the need for `.asm` files entirely:
-
-### Built-in CPU Intrinsics
-```python
-cpu.halt()          # Translates to `hlt`
-cpu.disable_int()   # Translates to `cli`
-```
-
-### Inline Assembly
-For ultra-specific context switches or Paging (`CR3` registers):
-```python
-@unsafe
-fn load_page_directory(ptr: ptr[u32]):
-    asm("mov cr3, {0}", in: ptr)
-```
-
----
-
-## 10. The Standard Library Ecosystem
-Once the bare-metal core is built, the language will ship with a powerful Standard Library that allows OS developers to build high-level concepts natively:
-- **`std.graphics` (Frontend):** Tools to draw windows, text, and 2D UI elements natively to the screen buffer.
-- **`std.fs` (Database/Storage):** A built-in filesystem module to create files, folders, and read/write to hard drives (acting as the OS Registry and Database).
-- **`std.net` (Backend):** TCP/UDP networking stacks to allow the OS to browse the web or act as a server.
-
----
-
-## 11. Compiler Pipeline & Tooling
-How code gets from text to a bootable OS:
-1. **Lexical Analysis & Parsing:** Builds the AST.
-2. **Semantic Analysis:** Enforces type checking and memory safety.
-3. **IR Generation:** Translates AST into LLVM Intermediate Representation.
-4. **Machine Code Emission:** LLVM optimizes and spits out raw `.o` files.
-5. **Linking:** Links `.o` files with a bootloader script into a bootable `.bin` or `.iso`.
-
-### Editor Support & Execution
-The compiler toolchain will feature a native **Language Server Protocol (LSP)**, allowing VS Code and other editors to have syntax highlighting, auto-complete, and error checking for the language.
-
-Running `compiler run os_kernel.os` will automatically compile the code and spin up a local **QEMU Virtual Machine**, letting the developer instantly see their OS boot up right inside their terminal/editor window.
+*More comprehensive ABI integrations, FFI declarations, and structured data compositions (`struct`) will be formally detailed as the `no_std` kernel core environment expands.*
