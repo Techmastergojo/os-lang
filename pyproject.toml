@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "os-lang"
 version = "0.1.0"
 authors = [
-  { name="Hamza", email="founder@nexus-os.org" },
+  { name="Hamza Tehseen Cheema", email="founder@nexus-os.org" },
 ]
 description = "A next-generation Pythonic language for building bare-metal Operating Systems."
 readme = "README.md"
