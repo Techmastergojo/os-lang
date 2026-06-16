@@ -189,11 +189,98 @@ def load_idt():
 
 ---
 
-## 9. Compiler Diagnostics & Errors
+## 9. Inline Assembly & The Foreign Function Interface (FFI)
 
-The OS-Lang parser provides strict diagnostics for:
-- **Type Misalignments:** Trying to assign an `i32` to a `u8` without explicit casting.
-- **Unsafe Violations:** Attempting to dereference a `ptr` outside an `@unsafe` block.
-- **Indentation Faults:** Misaligned block structures will immediately halt code generation.
+The technical bridge allowing OS-Lang to talk directly to CPU registers and ancestral C or Assembly initialization code.
 
-*More comprehensive ABI integrations, FFI declarations, and structured data compositions (`struct`) will be formally detailed as the `no_std` kernel core environment expands.*
+### 9.1 The `asm` Execution Block Engine
+Raw machine instructions can be evaluated directly inside an `@unsafe` segment. This is critical for operations that cannot be expressed in high-level syntax (e.g., loading the IDT).
+
+```python
+def load_idt_register(idt_ptr: ptr):
+    @unsafe:
+        asm("lidt (%0)" : : "r"(idt_ptr) : "memory")
+```
+
+### 9.2 The `@naked` Function Attribute
+The `@naked` attribute strips automatic compiler prologues and epilogues (no stack pushes, no base pointer tracking). This allows you to write raw interrupt handlers that cleanly manage their own entry and exit states via assembly (`iretq`).
+
+```python
+@naked
+def page_fault_handler():
+    @unsafe:
+        asm("pusha")
+        # Handle fault
+        asm("popa")
+        asm("iretq")
+```
+
+### 9.3 Cross-Language Linking (`extern "C"`)
+To link against ancestral binaries or bootloader objects written in C, declare foreign functions using `extern "C"`.
+
+```python
+extern "C" def kmain(multiboot_magic: u32, multiboot_info: ptr) -> !:
+    # OS entry point called by GRUB
+    pass
+```
+
+### 9.4 Symbol Preservation Attributes (`@no_mangle` / `@export`)
+To prevent LLVM from renaming symbols during the optimization pass (essential for `_start` or `kmain` functions called by assembly bootloaders), use the `@no_mangle` attribute.
+
+---
+
+## 10. Core Freestanding Runtime Engine (`no_std` Architecture)
+
+When running without a host OS layer, the compiler provides the absolute minimum safety scaffolds.
+
+### 10.1 The Master Panic Signature
+Upon an unrecoverable failure (e.g., an unhandled exception or an explicit `panic()`), the compiler redirects execution to a uniform panic handler. The kernel developer *must* define this intercept routine.
+
+```python
+@no_mangle
+def on_panic(file: ptr, line: u32, reason: ptr) -> !:
+    # Disable interrupts and halt CPU
+    @unsafe:
+        asm("cli; hlt")
+```
+
+### 10.2 Core Allocation Engine Traits
+OS-Lang assumes no heap. Developers must implement the uniform interface models to route expressions like `new` directly to a custom physical page allocator or buddy allocator system. Until this is manually hooked up, all dynamic allocations trigger compilation errors.
+
+---
+
+## 11. Testing, Cross-Validation & Debugging Systems
+
+### 11.1 Debug Symbol Generation
+To inject explicit DWARF data tracking frames alongside machine code, pass the `-g` flag to the compiler.
+```bash
+osc kernel.os --target=x86_64-unknown-none --freestanding -g
+```
+
+### 11.2 Active Debug Server Hookup
+To trace kernel execution, launch QEMU with a GDB stub:
+```bash
+qemu-system-x86_64 -kernel kernel.bin -s -S
+```
+Then, connect a live GDB execution instance:
+```bash
+gdb kernel.o -ex "target remote localhost:1234"
+```
+
+---
+
+## 12. Compiler Diagnostics & Undefined Behavior Matrix
+
+The OS-Lang parser provides an exhaustive diagnostic registry.
+
+### 12.1 Alphanumeric Error Registry
+- **E001 (Access Faults):** Attempting low-level pointer interaction without an open `@unsafe` boundary block.
+- **E002 (Type Misalignments):** Forcing variable conversions without passing an explicit `as` casting modifier.
+- **E003 (Indentation Mismatch):** Bad whitespace blocks halting the lexical compilation sequence.
+
+### 12.2 Undefined Behavior Warning Appendix
+The compiler parser cannot validate the following hardware scenarios at compile time. These will cause severe runtime failures (Undefined Behavior):
+- Misaligned hardware lookups (e.g., reading a `u32` from a non-4-byte aligned boundary).
+- Tracking across uninitialized memory fields.
+- Illegal out-of-bounds pointer loops inside an `@unsafe` block.
+- Casting an arbitrary integer to a function pointer that does not point to valid machine instructions.
