@@ -142,7 +142,54 @@ def print_a():
 
 ---
 
-## 8. Compiler Diagnostics & Errors
+## 8. Composite Types & Struct Alignment
+
+Writing hardware drivers and network stacks requires defining strict, multi-variable payloads. OS-Lang achieves this through the `struct` construct.
+
+### 8.1 Structure Syntax (`struct`)
+Structures allow you to group multi-type variables into a single, continuous memory block using Pythonic syntax.
+Fields are ordered sequentially in memory *exactly* as they are declared in code. 
+
+```python
+struct IDTEntry:
+    offset_low: u16
+    selector: u16
+    ist: u8
+    types_attr: u8
+    offset_mid: u16
+    offset_high: u32
+    reserved: u32
+```
+
+### 8.2 The `@packed` Attribute Modifier
+By default, the compiler naturally aligns types to hardware boundaries (e.g., aligning a `u32` on a 4-byte boundary) to optimize CPU fetch times. This creates invisible "padding bytes" between fields.
+
+When mapping structures directly to hardware-defined registers or strict networking packet formats, padding corrupts the data structure. The `@packed` decorator forces the compiler to strip all padding bytes, collapsing the struct into an exact, dense memory footprint.
+
+```python
+# Applying hardware layouts cleanly
+@packed
+struct PageTableEntry:
+    flags: u16
+    physical_frame_number: u64
+```
+
+### 8.3 Nesting Structures in `hwmap`
+The absolute power of OS-Lang’s readability shines when combining `struct` with `hwmap`. You can use a custom composite structure directly inside a memory map array.
+
+```python
+hwmap InterruptDescriptorTable at 0x1000:
+    entries: IDTEntry[256]
+
+def load_idt():
+    # Setting up the first interrupt gate directly over hardware memory
+    InterruptDescriptorTable.entries[0].offset_low = 0x0000
+    InterruptDescriptorTable.entries[0].selector = 0x08
+```
+
+---
+
+## 9. Compiler Diagnostics & Errors
 
 The OS-Lang parser provides strict diagnostics for:
 - **Type Misalignments:** Trying to assign an `i32` to a `u8` without explicit casting.
