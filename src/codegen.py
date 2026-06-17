@@ -414,16 +414,30 @@ class CodeGenerator:
                 return
 
         # Determine the LLVM type
-        if val is not None:
+        if node.type_annotation:
+            llvm_type = self.get_llvm_type(node.type_annotation)
+        elif val is not None:
             llvm_type = val.type
         else:
-            ann = node.type_annotation or "int"
-            llvm_type = self.get_llvm_type(ann)
+            llvm_type = self.get_llvm_type("int")
 
         ptr = self.builder.alloca(llvm_type, name=node.name.name)
         self.variables[node.name.name] = ptr
 
         if val is not None:
+            # Auto-cast initializer to match the declared type
+            if val.type != llvm_type:
+                if isinstance(val.type, ir.IntType) and isinstance(llvm_type, ir.IntType):
+                    if val.type.width > llvm_type.width:
+                        val = self.builder.trunc(val, llvm_type)
+                    else:
+                        val = self.builder.zext(val, llvm_type)
+                elif isinstance(val.type, ir.PointerType) and isinstance(llvm_type, ir.IntType):
+                    val = self.builder.ptrtoint(val, llvm_type)
+                elif isinstance(val.type, ir.IntType) and isinstance(llvm_type, ir.PointerType):
+                    val = self.builder.inttoptr(val, llvm_type)
+                else:
+                    val = self.builder.bitcast(val, llvm_type)
             self.builder.store(val, ptr)
 
     def generate_Assignment(self, node: ast.Assignment):
@@ -447,6 +461,15 @@ class CodeGenerator:
             zero    = ir.Constant(ir.IntType(32), 0)
             idx32   = self.builder.trunc(idx, ir.IntType(32)) if isinstance(idx.type, ir.IntType) and idx.type.width == 64 else idx
             elem_ptr = self.builder.gep(arr_ptr, [zero, idx32], inbounds=True)
+            
+            ptr_elem_type = elem_ptr.type.pointee
+            if val.type != ptr_elem_type:
+                if isinstance(val.type, ir.IntType) and isinstance(ptr_elem_type, ir.IntType):
+                    if val.type.width > ptr_elem_type.width:
+                        val = self.builder.trunc(val, ptr_elem_type)
+                    else:
+                        val = self.builder.zext(val, ptr_elem_type)
+            
             self.builder.store(val, elem_ptr)
 
         elif isinstance(node.target, ast.MemberAccess):
@@ -458,6 +481,15 @@ class CodeGenerator:
                 zero        = ir.Constant(ir.IntType(32), 0)
                 idx         = ir.Constant(ir.IntType(32), field_idx)
                 field_ptr   = self.builder.gep(struct_ptr, [zero, idx], inbounds=True)
+                
+                ptr_elem_type = field_ptr.type.pointee
+                if val.type != ptr_elem_type:
+                    if isinstance(val.type, ir.IntType) and isinstance(ptr_elem_type, ir.IntType):
+                        if val.type.width > ptr_elem_type.width:
+                            val = self.builder.trunc(val, ptr_elem_type)
+                        else:
+                            val = self.builder.zext(val, ptr_elem_type)
+                            
                 self.builder.store(val, field_ptr)
 
         return val
@@ -653,6 +685,12 @@ class CodeGenerator:
                             arg = self.builder.trunc(arg, param_type.type)
                         else:
                             arg = self.builder.zext(arg, param_type.type)
+                    elif isinstance(arg.type, ir.PointerType) and isinstance(param_type.type, ir.IntType):
+                        arg = self.builder.ptrtoint(arg, param_type.type)
+                    elif isinstance(arg.type, ir.IntType) and isinstance(param_type.type, ir.PointerType):
+                        arg = self.builder.inttoptr(arg, param_type.type)
+                    else:
+                        arg = self.builder.bitcast(arg, param_type.type)
                 coerced.append(arg)
             return self.builder.call(func, coerced)
 

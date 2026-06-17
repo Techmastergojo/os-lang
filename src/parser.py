@@ -174,6 +174,11 @@ class Parser:
 
     def parse_block(self) -> ast.Block:
         self.consume(TokenType.COLON, "Expect ':' before block.")
+        
+        if not self.check(TokenType.NEWLINE):
+            stmt = self.parse_statement()
+            return ast.Block(statements=[stmt])
+
         self.consume(TokenType.NEWLINE, "Expect newline after ':'.")
         self.consume(TokenType.INDENT, "Expect indentation for block.")
 
