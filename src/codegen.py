@@ -474,9 +474,21 @@ class CodeGenerator:
 
         elif isinstance(node.target, ast.PointerDereference):
             ptr = self.generate(node.target.pointer_expr)
+            
+            target_type_str = getattr(node.target, 'target_type', 'int')
+            llvm_target_type = self.get_llvm_type(target_type_str)
+            
+            # Type-coerce the value if sizes differ
+            if val.type != llvm_target_type:
+                if isinstance(val.type, ir.IntType) and isinstance(llvm_target_type, ir.IntType):
+                    if val.type.width > llvm_target_type.width:
+                        val = self.builder.trunc(val, llvm_target_type)
+                    else:
+                        val = self.builder.zext(val, llvm_target_type)
+                        
             if isinstance(ptr.type, ir.IntType):
-                # Cast the int pointer to a pointer type of the value we want to store
-                ptr = self.builder.inttoptr(ptr, ir.PointerType(val.type))
+                # Cast the int pointer to the target type of the pointer, not the generic value type
+                ptr = self.builder.inttoptr(ptr, ir.PointerType(llvm_target_type))
             self.builder.store(val, ptr)
 
         elif isinstance(node.target, ast.ArrayIndex):
@@ -659,10 +671,13 @@ class CodeGenerator:
     def generate_PointerDereference(self, node: ast.PointerDereference):
         """Generate load from a pointer."""
         ptr = self.generate(node.pointer_expr)
-        # If the pointer is an int, cast it to a generic pointer type
-        # Ideally, we should fetch the exact pointer type from the AST but a generic opaque pointer/i64 pointer works for IR
+        
+        # Determine the target type from the AST node (set during semantic analysis)
+        target_type_str = getattr(node, 'target_type', 'int')
+        llvm_target_type = self.get_llvm_type(target_type_str)
+        
         if isinstance(ptr.type, ir.IntType):
-            ptr = self.builder.inttoptr(ptr, ir.PointerType(ir.IntType(16)))
+            ptr = self.builder.inttoptr(ptr, ir.PointerType(llvm_target_type))
         return self.builder.load(ptr)
 
     def generate_AddressOf(self, node: ast.AddressOf):

@@ -524,12 +524,16 @@ class SemanticAnalyzer:
             raise SemanticError(f"Cannot dereference non-pointer type '{ptr_type}'.")
         # For simplicity, if it's *mut T, we can extract T, but int is the fallback
         if ptr_type.startswith("*mut "):
-            return ptr_type[5:]
-        if ptr_type.startswith("*const "):
-            return ptr_type[7:]
-        if ptr_type.startswith("ptr["):
-            return ptr_type[4:-1]
-        return "int"
+            target_type = ptr_type[5:]
+        elif ptr_type.startswith("*const "):
+            target_type = ptr_type[7:]
+        elif ptr_type.startswith("ptr["):
+            target_type = ptr_type[4:-1]
+        else:
+            target_type = "int"
+        
+        node.target_type = target_type
+        return target_type
 
     def analyze_AddressOf(self, node: ast.AddressOf) -> str:
         if not self.in_unsafe_block:

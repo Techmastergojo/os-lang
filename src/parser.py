@@ -591,11 +591,19 @@ class Parser:
         return expr
 
     def parse_term(self) -> ast.ASTNode:
-        expr = self.parse_unary()
+        expr = self.parse_cast()
         while self.match(TokenType.STAR, TokenType.SLASH):
             operator = self.previous().lexeme
-            right = self.parse_unary()
+            right = self.parse_cast()
             expr = ast.BinaryOp(left=expr, operator=operator, right=right)
+        return expr
+
+    def parse_cast(self) -> ast.ASTNode:
+        """Handle casting 'as Type' which binds tighter than math but weaker than unary '*'."""
+        expr = self.parse_unary()
+        while self.match(TokenType.AS):
+            type_str = self.parse_type_string()
+            expr = ast.Cast(expr=expr, target_type=type_str)
         return expr
 
     def parse_unary(self) -> ast.ASTNode:
@@ -610,7 +618,7 @@ class Parser:
         return self.parse_postfix()
 
     def parse_postfix(self) -> ast.ASTNode:
-        """Handle postfix operations: calls, member access, indexing, casting."""
+        """Handle postfix operations: calls, member access, indexing."""
         expr = self.parse_primary()
 
         while True:
@@ -624,9 +632,6 @@ class Parser:
                 index = self.parse_expression()
                 self.consume(TokenType.RBRACKET, "Expect ']' after index.")
                 expr = ast.ArrayIndex(array=expr, index=index)
-            elif self.match(TokenType.AS):
-                type_str = self.parse_type_string()
-                expr = ast.Cast(expr=expr, target_type=type_str)
             else:
                 break
 
