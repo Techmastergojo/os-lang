@@ -332,6 +332,33 @@ class SemanticAnalyzer:
             self.analyze(node.else_block)
         return "void"
 
+    def analyze_MatchStatement(self, node: ast.MatchStatement) -> str:
+        target_type = self.analyze(node.target)
+        # We generally expect match targets to be an enum, but could allow ints.
+        # For now, let's just make sure the variants exist if they are EnumVariants.
+        has_wildcard = False
+        
+        for case in node.cases:
+            if isinstance(case.pattern, ast.EnumVariant):
+                enum_name = case.pattern.enum_name
+                if enum_name not in self.enums:
+                    raise SemanticError(f"Match pattern references unknown enum '{enum_name}'.")
+                if case.pattern.variant not in self.enums[enum_name]:
+                    raise SemanticError(f"Enum '{enum_name}' has no variant '{case.pattern.variant}'.")
+                if target_type != "unknown" and target_type != enum_name:
+                    # In a strict language we'd enforce target_type == enum_name
+                    # But right now target_type for enums might be resolved as just the enum name or "int"
+                    pass
+            elif isinstance(case.pattern, ast.Identifier):
+                if case.pattern.name == '_':
+                    has_wildcard = True
+                else:
+                    raise SemanticError(f"Invalid match pattern '{case.pattern.name}', use '_' for wildcard.")
+            
+            self.analyze(case.body)
+            
+        return "void"
+
     def analyze_WhileStatement(self, node: ast.WhileStatement) -> str:
         self.analyze(node.condition)
         self.analyze(node.body)

@@ -158,6 +158,18 @@ class EnumDeclaration(ASTNode):
     variants: List[str]  # List of variant names
 
 @dataclass
+class MatchCase(ASTNode):
+    """Phase 10: Represents a single case in a match statement."""
+    pattern: ASTNode  # Either EnumVariant or Identifier (for wildcard '_')
+    body: Block
+
+@dataclass
+class MatchStatement(ASTNode):
+    """Phase 10: Represents a match expression/statement."""
+    target: ASTNode
+    cases: List[MatchCase]
+
+@dataclass
 class LockBlock(ASTNode):
     """Represents a `lock x:` concurrency block."""
     target: 'Identifier'

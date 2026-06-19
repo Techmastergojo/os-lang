@@ -184,6 +184,9 @@ class Parser:
             body = self.parse_block()
             return ast.UnsafeBlock(body=body)
 
+        if self.match(TokenType.MATCH):
+            return self.parse_match_statement()
+
         # Expression statement
         expr = self.parse_expression()
         if not self.is_at_end() and self.peek().type not in (TokenType.DEDENT, TokenType.EOF):
@@ -425,6 +428,53 @@ class Parser:
             else_block = self.parse_block()
 
         return ast.IfStatement(condition=condition, then_block=then_block, elif_branches=elif_branches, else_block=else_block)
+
+    def parse_match_statement(self) -> ast.MatchStatement:
+        target = self.parse_expression()
+        self.consume(TokenType.COLON, "Expect ':' after match target.")
+        self.consume(TokenType.NEWLINE, "Expect newline after match target.")
+        self.consume(TokenType.INDENT, "Expect indentation for match cases.")
+        
+        cases = []
+        while not self.check(TokenType.DEDENT) and not self.is_at_end():
+            if self.match(TokenType.NEWLINE):
+                continue
+            
+            # parse pattern
+            # it could be EnumVariant like Status.OK or Identifier like '_'
+            if self.check(TokenType.IDENTIFIER):
+                first_id = self.consume(TokenType.IDENTIFIER, "Expect pattern identifier.").lexeme
+                if self.match(TokenType.DOT):
+                    variant_id = self.consume(TokenType.IDENTIFIER, "Expect variant name after '.'.").lexeme
+                    pattern = ast.EnumVariant(enum_name=first_id, variant=variant_id)
+                else:
+                    pattern = ast.Identifier(name=first_id)
+            else:
+                raise ParseError(f"Line {self.peek().line}: Expect pattern identifier or '_' in match case.")
+                
+            self.consume(TokenType.FAT_ARROW, "Expect '=>' after match pattern.")
+            
+            # Now we parse a block or a single statement for the case body
+            # Wait, match cases usually look like:
+            # OK => { block }
+            # But let's support a simple block starting with colon, or a single statement
+            # To be consistent with python: 
+            # Status.OK =>:
+            #     ...
+            # Oh wait, we just added FAT_ARROW. Let's make it so you can write:
+            # Status.OK => statement
+            # Or if it's multiple lines, maybe require a block?
+            # Actually, let's just parse a statement. If it's a block, we parse a block.
+            if self.check(TokenType.COLON):
+                body = self.parse_block()
+            else:
+                stmt = self.parse_statement()
+                body = ast.Block(statements=[stmt])
+                
+            cases.append(ast.MatchCase(pattern=pattern, body=body))
+            
+        self.consume(TokenType.DEDENT, "Expect dedent after match cases.")
+        return ast.MatchStatement(target=target, cases=cases)
 
     def parse_while_statement(self) -> ast.WhileStatement:
         condition = self.parse_expression()

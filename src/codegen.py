@@ -579,6 +579,50 @@ class CodeGenerator:
 
         self.builder.position_at_end(merge_bb)
 
+    def generate_MatchStatement(self, node: ast.MatchStatement):
+        """Generate match statement as an LLVM switch."""
+        func = self.builder.function
+        target_val = self.generate(node.target)
+
+        merge_bb = func.append_basic_block("match.merge")
+        default_bb = func.append_basic_block("match.default")
+
+        # Find wildcard if any
+        wildcard_case = None
+        for case in node.cases:
+            if isinstance(case.pattern, ast.Identifier) and case.pattern.name == '_':
+                wildcard_case = case
+                break
+
+        switch_inst = self.builder.switch(target_val, default_bb)
+
+        for case in node.cases:
+            if case is wildcard_case:
+                continue
+
+            case_bb = func.append_basic_block("match.case")
+            
+            # case.pattern is an EnumVariant. evaluate it to get the constant value.
+            case_val = self.generate(case.pattern)
+            switch_inst.add_case(case_val, case_bb)
+
+            # Generate case body
+            self.builder.position_at_end(case_bb)
+            for stmt in case.body.statements:
+                self.generate(stmt)
+            if not self.builder.block.is_terminated:
+                self.builder.branch(merge_bb)
+
+        # Generate default block body (either the wildcard body, or just branch to merge)
+        self.builder.position_at_end(default_bb)
+        if wildcard_case:
+            for stmt in wildcard_case.body.statements:
+                self.generate(stmt)
+        if not self.builder.block.is_terminated:
+            self.builder.branch(merge_bb)
+
+        self.builder.position_at_end(merge_bb)
+
     def generate_WhileStatement(self, node: ast.WhileStatement):
         """Generate while loop as cond_bb → body_bb → cond_bb loop."""
         func    = self.builder.function

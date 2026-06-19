@@ -24,6 +24,7 @@ class TokenType(Enum):
     AS = auto()
     SIZEOF = auto()
     ENUM = auto()       # Phase 7: enum keyword
+    MATCH = auto()      # Phase 10: match keyword
     SEMICOLON = auto()  # Phase 7: [u8; 16] array syntax
     EXTERN = auto()     # Phase 8: extern "C" declarations
     VARARG = auto()     # Phase 8: variadic ... arguments
@@ -60,6 +61,7 @@ class TokenType(Enum):
     CARET = auto()
     LSHIFT = auto()
     RSHIFT = auto()
+    FAT_ARROW = auto()  # =>
     
     # Structure
     NEWLINE = auto()

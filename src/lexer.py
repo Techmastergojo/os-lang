@@ -114,6 +114,7 @@ class Lexer:
                     "enum":   TokenType.ENUM,   # Phase 7
                     "extern": TokenType.EXTERN, # Phase 8
                     "unsafe": TokenType.UNSAFE, # Phase 9
+                    "match":  TokenType.MATCH,  # Phase 10
                 }
                 token_type = keywords.get(lexeme, TokenType.IDENTIFIER)
                 tokens.append(Token(token_type, lexeme, self.line, start_col))
@@ -171,6 +172,10 @@ class Lexer:
                     self.advance()
                     token_type = TokenType.EQ
                     c = '=='
+                elif self.peek() == '>':
+                    self.advance()
+                    token_type = TokenType.FAT_ARROW
+                    c = '=>'
                 else:
                     token_type = TokenType.ASSIGN
             elif c == '!':
