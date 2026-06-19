@@ -128,6 +128,16 @@ class Parser:
                     is_naked=True,
                 )
 
+            # -- @packed --
+            elif tag_name == "packed":
+                self.skip_newlines()
+                if self.match(TokenType.STRUCT):
+                    return self.parse_struct_declaration(is_hwmap=False, is_packed=True)
+                elif self.match(TokenType.HWMAP):
+                    return self.parse_struct_declaration(is_hwmap=True, is_packed=True)
+                else:
+                    raise ParseError(f"Line {self.peek().line}: Expect 'struct' or 'hwmap' after @packed.")
+
             else:
                 raise ParseError(f"Line {tag.line}: Unknown decorator @{tag.lexeme}")
 
@@ -250,7 +260,7 @@ class Parser:
             is_naked=is_naked,
         )
 
-    def parse_struct_declaration(self, is_hwmap: bool) -> ast.StructDeclaration:
+    def parse_struct_declaration(self, is_hwmap: bool, is_packed: bool = False) -> ast.StructDeclaration:
         name = self.consume(TokenType.IDENTIFIER, "Expect struct/hwmap name.")
         self.consume(TokenType.COLON, "Expect ':' after struct name.")
         self.consume(TokenType.NEWLINE, "Expect newline after ':'.")
@@ -267,7 +277,7 @@ class Parser:
             self.match(TokenType.NEWLINE)
 
         self.consume(TokenType.DEDENT, "Expect dedent after struct body.")
-        return ast.StructDeclaration(name=ast.Identifier(name=name.lexeme), fields=fields, is_hwmap=is_hwmap)
+        return ast.StructDeclaration(name=ast.Identifier(name=name.lexeme), fields=fields, is_hwmap=is_hwmap, is_packed=is_packed)
 
     def parse_enum_declaration(self) -> ast.EnumDeclaration:
         """Parse: enum Status { OK, ERROR, PENDING }"""

@@ -464,6 +464,7 @@ class SemanticAnalyzer:
         return node.target_type
 
     def analyze_SizeOf(self, node: ast.SizeOf) -> str:
+        # Code generator will validate the type when emitting IR.
         return "int"
 
     def analyze_ImportStatement(self, node: ast.ImportStatement) -> str:

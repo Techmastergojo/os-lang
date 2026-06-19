@@ -95,7 +95,8 @@ class CodeGenerator:
         If is_hwmap is True, the struct is marked as packed (no padding)."""
         field_types = [self.get_llvm_type(f[1]) for f in node.fields]
         field_names = [f[0].name for f in node.fields]
-        struct_type = ir.LiteralStructType(field_types, packed=node.is_hwmap)
+        is_packed = node.is_hwmap or getattr(node, 'is_packed', False)
+        struct_type = ir.LiteralStructType(field_types, packed=is_packed)
         self.struct_types[node.name.name] = struct_type
         self.struct_fields[node.name.name] = field_names
 

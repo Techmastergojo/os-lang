@@ -149,6 +149,7 @@ class StructDeclaration(ASTNode):
     name: 'Identifier'
     fields: List[tuple]  # List of (name, type)
     is_hwmap: bool = False
+    is_packed: bool = False
 
 @dataclass
 class EnumDeclaration(ASTNode):
