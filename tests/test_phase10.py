@@ -53,7 +53,7 @@ fn get_cr3() -> ptr[u32]:
 """
     module = compile_source(source)
     ir = str(module)
-    assert "call i64 asm sideeffect \"mov $0, cr3\", \"=r,~{memory},~{dirflag},~{fpsr},~{flags}\"" in ir
+    assert "call i32* asm sideeffect \"mov $0, cr3\", \"=r,~{memory},~{dirflag},~{fpsr},~{flags}\"" in ir
 
 def test_asm_block_fails_outside_unsafe():
     source = """

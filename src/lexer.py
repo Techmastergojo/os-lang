@@ -113,6 +113,7 @@ class Lexer:
                     "sizeof": TokenType.SIZEOF,
                     "enum":   TokenType.ENUM,   # Phase 7
                     "extern": TokenType.EXTERN, # Phase 8
+                    "unsafe": TokenType.UNSAFE, # Phase 9
                 }
                 token_type = keywords.get(lexeme, TokenType.IDENTIFIER)
                 tokens.append(Token(token_type, lexeme, self.line, start_col))

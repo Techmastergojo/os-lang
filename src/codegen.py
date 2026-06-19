@@ -273,28 +273,44 @@ class CodeGenerator:
             return self.builder.zext(result, i64)
 
         elif n in ("outb", "outw", "outl"):
-            # outb(port: u16, value: u8) — x86: outb %al, %dx
             port = args[0]
             val  = args[1]
             if port.type != i16:
                 port = self.builder.trunc(port, i16) if port.type.width > 16 else self.builder.zext(port, i16)
-            if val.type != i8:
-                val = self.builder.trunc(val, i8) if val.type.width > 8 else self.builder.zext(val, i8)
-            fn_type = ir.FunctionType(void, [i16, i8])
-            # Constraints: two inputs ({dx} = port, {al} = byte), clobber flags
-            asm_fn  = ir.InlineAsm(fn_type, "outb %al,%dx", "{dx},{al},~{dirflag},~{fpsr},~{flags}",
-                                   side_effect=True)
+            
+            if n == "outb":
+                if val.type != i8:
+                    val = self.builder.trunc(val, i8) if val.type.width > 8 else self.builder.zext(val, i8)
+                fn_type = ir.FunctionType(void, [i16, i8])
+                asm_fn  = ir.InlineAsm(fn_type, "outb %al,%dx", "{dx},{al},~{dirflag},~{fpsr},~{flags}", side_effect=True)
+            elif n == "outw":
+                if val.type != i16:
+                    val = self.builder.trunc(val, i16) if val.type.width > 16 else self.builder.zext(val, i16)
+                fn_type = ir.FunctionType(void, [i16, i16])
+                asm_fn  = ir.InlineAsm(fn_type, "outw %ax,%dx", "{dx},{ax},~{dirflag},~{fpsr},~{flags}", side_effect=True)
+            elif n == "outl":
+                if val.type != i32:
+                    val = self.builder.trunc(val, i32) if val.type.width > 32 else self.builder.zext(val, i32)
+                fn_type = ir.FunctionType(void, [i16, i32])
+                asm_fn  = ir.InlineAsm(fn_type, "outl %eax,%dx", "{dx},{eax},~{dirflag},~{fpsr},~{flags}", side_effect=True)
+            
             self.builder.call(asm_fn, [port, val])
 
         elif n in ("inb", "inw", "inl"):
-            # inb(port: u16) -> u8 — x86: inb %dx, %al
             port = args[0]
             if port.type != i16:
                 port = self.builder.trunc(port, i16) if port.type.width > 16 else self.builder.zext(port, i16)
-            fn_type = ir.FunctionType(i8, [i16])
-            # Constraints: one input ({dx} = port), output in al
-            asm_fn  = ir.InlineAsm(fn_type, "inb %dx,%al", "={al},{dx},~{dirflag},~{fpsr},~{flags}",
-                                   side_effect=True)
+            
+            if n == "inb":
+                fn_type = ir.FunctionType(i8, [i16])
+                asm_fn  = ir.InlineAsm(fn_type, "inb %dx,%al", "={al},{dx},~{dirflag},~{fpsr},~{flags}", side_effect=True)
+            elif n == "inw":
+                fn_type = ir.FunctionType(i16, [i16])
+                asm_fn  = ir.InlineAsm(fn_type, "inw %dx,%ax", "={ax},{dx},~{dirflag},~{fpsr},~{flags}", side_effect=True)
+            elif n == "inl":
+                fn_type = ir.FunctionType(i32, [i16])
+                asm_fn  = ir.InlineAsm(fn_type, "inl %dx,%eax", "={eax},{dx},~{dirflag},~{fpsr},~{flags}", side_effect=True)
+
             result = self.builder.call(asm_fn, [port])
             return self.builder.zext(result, i64)
 
@@ -455,6 +471,13 @@ class CodeGenerator:
                         val = self.builder.zext(val, ptr_elem_type)
             self.builder.store(val, ptr)
 
+        elif isinstance(node.target, ast.PointerDereference):
+            ptr = self.generate(node.target.pointer_expr)
+            if isinstance(ptr.type, ir.IntType):
+                # Cast the int pointer to a pointer type of the value we want to store
+                ptr = self.builder.inttoptr(ptr, ir.PointerType(val.type))
+            self.builder.store(val, ptr)
+
         elif isinstance(node.target, ast.ArrayIndex):
             arr_ptr = self._resolve_ptr(node.target.array)
             idx     = self.generate(node.target.index)
@@ -583,6 +606,28 @@ class CodeGenerator:
     def generate_LockBlock(self, node: ast.LockBlock):
         # Concurrency semantics — body is generated normally (actual locking at runtime via stdlib)
         self.generate(node.body)
+
+    def generate_UnsafeBlock(self, node: ast.UnsafeBlock):
+        """Generate code for unsafe block. In LLVM IR this is transparent."""
+        self.generate(node.body)
+
+    def generate_PointerDereference(self, node: ast.PointerDereference):
+        """Generate load from a pointer."""
+        ptr = self.generate(node.pointer_expr)
+        # If the pointer is an int, cast it to a generic pointer type
+        # Ideally, we should fetch the exact pointer type from the AST but a generic opaque pointer/i64 pointer works for IR
+        if isinstance(ptr.type, ir.IntType):
+            ptr = self.builder.inttoptr(ptr, ir.PointerType(ir.IntType(16)))
+        return self.builder.load(ptr)
+
+    def generate_AddressOf(self, node: ast.AddressOf):
+        """Generate address-of operation."""
+        if isinstance(node.target, ast.Identifier):
+            name = node.target.name
+            if name in self.variables:
+                return self.variables[name]
+            raise Exception(f"Undefined variable in address-of: {name}")
+        raise Exception("AddressOf target must be an identifier in current implementation")
 
     # ==========================================
     # Expressions

@@ -60,16 +60,20 @@ class Parser:
     def parse_statement(self) -> ast.ASTNode:
         # Decorator / annotation: handles stacked decorators, e.g. @unsafe @noreturn fn
         if self.match(TokenType.AT):
-            tag = self.consume(TokenType.IDENTIFIER, "Expect tag after '@'.")
+            if self.match(TokenType.UNSAFE):
+                tag_name = "unsafe"
+            else:
+                tag = self.consume(TokenType.IDENTIFIER, "Expect tag after '@'.")
+                tag_name = tag.lexeme
 
             # -- @unsafe --
-            if tag.lexeme == "unsafe":
+            if tag_name == "unsafe":
                 self.skip_newlines()
                 if self.match(TokenType.FN):
                     return self.parse_function_declaration(is_unsafe=True)
 
             # -- @interrupt(n) --
-            elif tag.lexeme == "interrupt":
+            elif tag_name == "interrupt":
                 self.consume(TokenType.LPAREN, "Expect '(' after interrupt tag.")
                 num = self.consume(TokenType.NUMBER, "Expect interrupt number.")
                 self.consume(TokenType.RPAREN, "Expect ')' after interrupt number.")
@@ -82,13 +86,13 @@ class Parser:
                 )
 
             # -- @entry --
-            elif tag.lexeme == "entry":
+            elif tag_name == "entry":
                 self.skip_newlines()
                 self.consume(TokenType.FN, "Expect 'fn' after @entry.")
                 return self.parse_function_declaration(is_unsafe=True)
 
             # -- @syscall(n) --
-            elif tag.lexeme == "syscall":
+            elif tag_name == "syscall":
                 self.consume(TokenType.LPAREN, "Expect '(' after @syscall.")
                 num = self.consume(TokenType.NUMBER, "Expect syscall number.")
                 self.consume(TokenType.RPAREN, "Expect ')' after syscall number.")
@@ -101,7 +105,7 @@ class Parser:
                 )
 
             # -- @driver --
-            elif tag.lexeme == "driver":
+            elif tag_name == "driver":
                 self.skip_newlines()
                 self.consume(TokenType.FN, "Expect 'fn' after @driver.")
                 return self.parse_function_declaration(
@@ -110,13 +114,13 @@ class Parser:
                 )
 
             # -- @noreturn --
-            elif tag.lexeme == "noreturn":
+            elif tag_name == "noreturn":
                 self.skip_newlines()
                 self.consume(TokenType.FN, "Expect 'fn' after @noreturn.")
                 return self.parse_function_declaration(is_noreturn=True)
 
             # -- @naked --
-            elif tag.lexeme == "naked":
+            elif tag_name == "naked":
                 self.skip_newlines()
                 self.consume(TokenType.FN, "Expect 'fn' after @naked.")
                 return self.parse_function_declaration(
@@ -165,6 +169,10 @@ class Parser:
 
         if self.match(TokenType.LET):
             return self.parse_variable_declaration(is_shared=False)
+
+        if self.match(TokenType.UNSAFE):
+            body = self.parse_block()
+            return ast.UnsafeBlock(body=body)
 
         # Expression statement
         expr = self.parse_expression()
@@ -428,6 +436,18 @@ class Parser:
         Handles: int, u8, str, bool, void, ptr, ptr[u8],
                  [u8; 16] (array types), and plain identifiers (struct/enum names).
         """
+        if self.match(TokenType.STAR):
+            # *mut T or *const T
+            is_mut = False
+            if self.match(TokenType.MUT):
+                is_mut = True
+            elif self.check(TokenType.IDENTIFIER) and self.peek().lexeme == "const":
+                self.advance()
+            else:
+                pass # default to const if neither
+            inner = self.parse_type_string()
+            return f"*mut {inner}" if is_mut else f"*const {inner}"
+
         # Array type: [ElementType; Size]
         if self.match(TokenType.LBRACKET):
             elem_type = self.parse_type_string()
@@ -519,6 +539,13 @@ class Parser:
         return expr
 
     def parse_unary(self) -> ast.ASTNode:
+        if self.match(TokenType.STAR):
+            expr = self.parse_unary()
+            return ast.PointerDereference(pointer_expr=expr)
+        if self.match(TokenType.AMPERSAND):
+            expr = self.parse_unary()
+            return ast.AddressOf(target=expr)
+        
         # Future: handle unary - and ! here
         return self.parse_postfix()
 

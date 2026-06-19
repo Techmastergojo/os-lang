@@ -47,6 +47,14 @@ class Cast(ASTNode):
     target_type: str
 
 @dataclass
+class PointerDereference(ASTNode):
+    pointer_expr: ASTNode
+
+@dataclass
+class AddressOf(ASTNode):
+    target: ASTNode
+
+@dataclass
 class SizeOf(ASTNode):
     target_type: str
 

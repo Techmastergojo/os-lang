@@ -141,7 +141,7 @@ class SemanticAnalyzer:
             # Allow any integer-width type to be assigned to any other integer type
             is_numeric_compat = ann in self.INT_TYPES and inferred_type in self.INT_TYPES
             # Allow int literal for pointer / struct / array initialization
-            is_ptr_assign    = ann.startswith("ptr") and inferred_type == "int"
+            is_ptr_assign    = (ann.startswith("ptr") or ann.startswith("*")) and inferred_type == "int"
             is_struct_assign = ann in self.structs and inferred_type == "int"
             is_array_assign  = ann.startswith("[") and inferred_type.startswith("[")
             is_enum_assign   = ann in self.enums and inferred_type in self.enums
@@ -163,11 +163,11 @@ class SemanticAnalyzer:
             if not symbol.is_mut:
                 raise SemanticError(
                     f"Cannot reassign to immutable variable '{node.target.name}'. Use 'let mut'.")
-            if symbol.type_name.startswith("ptr") and not self.in_unsafe_block:
+            if (symbol.type_name.startswith("ptr") or symbol.type_name.startswith("*")) and not self.in_unsafe_block:
                 raise SemanticError(
                     f"Memory safety: Pointer '{node.target.name}' accessed outside @unsafe.")
             val_type = self.analyze(node.value)
-            is_ptr = symbol.type_name.startswith("ptr") and val_type == "int"
+            is_ptr = (symbol.type_name.startswith("ptr") or symbol.type_name.startswith("*")) and val_type == "int"
             if symbol.type_name != val_type and symbol.type_name != "unknown" and not is_ptr:
                 raise SemanticError(
                     f"Type mismatch: Cannot assign '{val_type}' to '{symbol.type_name}'.")
@@ -196,7 +196,7 @@ class SemanticAnalyzer:
         if symbol.is_shared and node.name not in self.locked_variables:
             raise SemanticError(
                 f"Concurrency error: Shared variable '{node.name}' accessed outside a lock block.")
-        if symbol.type_name.startswith("ptr") and not self.in_unsafe_block:
+        if (symbol.type_name.startswith("ptr") or symbol.type_name.startswith("*")) and not self.in_unsafe_block:
             raise SemanticError(
                 f"Memory safety: Pointer '{node.name}' accessed outside @unsafe.")
         return symbol.type_name
@@ -255,7 +255,7 @@ class SemanticAnalyzer:
         # @interrupt validation: no ptr params allowed (x86_intrcc ABI restriction)
         if node.is_interrupt:
             for p_name, p_type in node.parameters:
-                if p_type.startswith("ptr"):
+                if p_type.startswith("ptr") or p_type.startswith("*"):
                     raise SemanticError(
                         f"@interrupt handler '{node.name.name}': parameter '{p_name.name}' "
                         f"cannot be a ptr (use InterruptFrame via stack or asm block).")
@@ -480,6 +480,35 @@ class SemanticAnalyzer:
         self.analyze(node.body)
         self.locked_variables.remove(target_name)
         return "void"
+
+    def analyze_UnsafeBlock(self, node: ast.UnsafeBlock) -> str:
+        prev_unsafe = self.in_unsafe_block
+        self.in_unsafe_block = True
+        self.analyze(node.body)
+        self.in_unsafe_block = prev_unsafe
+        return "void"
+
+    def analyze_PointerDereference(self, node: ast.PointerDereference) -> str:
+        if not self.in_unsafe_block:
+            raise SemanticError("Memory safety: Pointer dereferenced outside unsafe block.")
+        ptr_type = self.analyze(node.pointer_expr)
+        if not (ptr_type.startswith("ptr") or ptr_type.startswith("*")):
+            raise SemanticError(f"Cannot dereference non-pointer type '{ptr_type}'.")
+        # For simplicity, if it's *mut T, we can extract T, but int is the fallback
+        if ptr_type.startswith("*mut "):
+            return ptr_type[5:]
+        if ptr_type.startswith("*const "):
+            return ptr_type[7:]
+        if ptr_type.startswith("ptr["):
+            return ptr_type[4:-1]
+        return "int"
+
+    def analyze_AddressOf(self, node: ast.AddressOf) -> str:
+        if not self.in_unsafe_block:
+            raise SemanticError("Memory safety: Address-of taken outside unsafe block.")
+        t = self.analyze(node.target)
+        return f"*mut {t}"
+
 
     # ==========================================
     # Phase 8: C Interoperability Visitors

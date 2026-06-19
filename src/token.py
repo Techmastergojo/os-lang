@@ -27,6 +27,7 @@ class TokenType(Enum):
     SEMICOLON = auto()  # Phase 7: [u8; 16] array syntax
     EXTERN = auto()     # Phase 8: extern "C" declarations
     VARARG = auto()     # Phase 8: variadic ... arguments
+    UNSAFE = auto()     # Phase 9: unsafe blocks
     
     # Identifiers and Literals
     IDENTIFIER = auto()
