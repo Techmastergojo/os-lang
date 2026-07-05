@@ -32,14 +32,20 @@ const config: Config = {
 
   themeConfig: {
       colorMode: {
-        defaultMode: 'dark',
-        disableSwitch: true, // Force Dark Luxury
+        defaultMode: 'light',
+        disableSwitch: true, // Force Light theme as per python.org
         respectPrefersColorScheme: false,
       },
       navbar: {
         title: 'OS-Lang',
+        logo: {
+          alt: 'OS-Lang Logo',
+          src: 'img/logo.svg', // Will use text if logo isn't present, but keeping for standard format
+        },
         items: [
           { type: 'docSidebar', sidebarId: 'tutorialSidebar', position: 'left', label: 'Documentation' },
+          { to: '/downloads', label: 'Downloads', position: 'left' },
+          { to: '/community', label: 'Community', position: 'left' },
           { href: 'https://github.com/Techmastergojo/os-lang', label: 'GitHub', position: 'right' },
         ],
       },

@@ -1,79 +1,190 @@
 :root {
-  --ifm-color-primary: #8b5cf6;
-  --ifm-color-primary-dark: #7c3aed;
-  --ifm-color-primary-darker: #6d28d9;
-  --ifm-color-primary-darkest: #5b21b6;
-  --ifm-color-primary-light: #a78bfa;
-  --ifm-color-primary-lighter: #c4b5fd;
-  --ifm-color-primary-lightest: #ddd6fe;
+  --ifm-color-primary: #3776ab;
+  --ifm-color-primary-dark: #2f6592;
+  --ifm-color-primary-darker: #2c5f89;
+  --ifm-color-primary-darkest: #244e71;
+  --ifm-color-primary-light: #448cc9;
+  --ifm-color-primary-lighter: #5496ce;
+  --ifm-color-primary-lightest: #85b4df;
   
-  --ifm-background-color: #050505;
-  --ifm-background-surface-color: #121212;
+  --ifm-background-color: #ffffff;
+  --ifm-background-surface-color: #f6f6f6;
   
-  --docusaurus-highlighted-code-line-bg: rgba(139, 92, 246, 0.2);
-  --ifm-font-family-base: 'Inter', system-ui, -apple-system, sans-serif;
-  --ifm-heading-color: #ffffff;
-  --ifm-font-color-base: #a1a1aa;
+  --docusaurus-highlighted-code-line-bg: rgba(55, 118, 171, 0.1);
+  --ifm-font-family-base: 'Source Sans Pro', Arial, sans-serif;
+  --ifm-heading-color: #333333;
+  --ifm-font-color-base: #333333;
+
+  /* Python specific colors */
+  --py-yellow: #ffd43b;
+  --py-yellow-dark: #ffe873;
+  --py-blue: #3776ab;
+  --py-dark-blue: #212936;
+  --py-grey: #646464;
 }
 
-html[data-theme='dark'] {
-  --ifm-background-color: #050505;
-  --ifm-background-surface-color: #121212;
-  --ifm-navbar-background-color: rgba(5, 5, 5, 0.8);
-  --ifm-navbar-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+/* Navbar styling like Python.org */
+.navbar {
+  background-color: var(--py-dark-blue);
+  color: white;
+  border-bottom: 4px solid var(--py-yellow);
 }
 
-/* Glassmorphism utility */
-.glass-panel {
-  background: rgba(18, 18, 18, 0.7);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+.navbar__title {
+  color: white;
 }
 
-/* Hero Section Styles */
+.navbar__item {
+  color: #c8d6e5;
+  font-weight: 600;
+}
+
+.navbar__item:hover, .navbar__item--active {
+  color: white;
+}
+
+/* Hero Section Styles like Python.org */
 .heroBanner {
-  padding: 8rem 0;
-  text-align: center;
+  padding: 4rem 0;
+  text-align: left;
   position: relative;
   overflow: hidden;
-  background: radial-gradient(circle at center, #1e1b4b 0%, #050505 70%);
+  background-color: var(--py-dark-blue);
+  color: white;
+}
+
+.heroContainer {
+  display: flex;
+  max-width: 1200px;
+  margin: 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2rem;
+  gap: 2rem;
+}
+
+.heroText {
+  flex: 1;
 }
 
 .heroTitle {
-  font-size: 4rem;
-  font-weight: 800;
-  background: -webkit-linear-gradient(45deg, #a78bfa, #3b82f6);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  font-size: 3rem;
+  font-weight: 700;
+  color: white;
   margin-bottom: 1rem;
 }
 
 .heroSubtitle {
-  font-size: 1.5rem;
-  color: #a1a1aa;
+  font-size: 1.2rem;
+  color: #c8d6e5;
   margin-bottom: 2rem;
+  font-weight: 400;
+}
+
+.heroCode {
+  flex: 1;
+  background: #1a232d;
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid #3776ab;
+  color: #c8d6e5;
+  font-family: monospace;
+}
+
+.heroCode h3 {
+  color: var(--py-yellow);
+  font-size: 1.2rem;
+  margin-bottom: 1rem;
+  font-family: 'Source Sans Pro', Arial, sans-serif;
+}
+
+.heroCode pre {
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  border: none;
+  box-shadow: none;
+}
+
+.heroCode code {
+  color: white;
+}
+
+.heroCode .comment {
+  color: #646464;
+}
+
+.heroCode .keyword {
+  color: var(--py-yellow);
 }
 
 .buttons {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 1rem;
 }
 
-.button--glow {
-  background: #8b5cf6;
-  color: white;
+.button--py-yellow {
+  background: var(--py-yellow);
+  color: #333;
   border: none;
-  box-shadow: 0 0 20px rgba(139, 92, 246, 0.5);
-  transition: all 0.3s ease;
+  font-weight: bold;
+  padding: 0.8rem 1.5rem;
+  border-radius: 4px;
+  transition: background 0.2s;
 }
 
-.button--glow:hover {
-  background: #7c3aed;
-  box-shadow: 0 0 30px rgba(139, 92, 246, 0.8);
+.button--py-yellow:hover {
+  background: #ffcc00;
+  color: #333;
+  text-decoration: none;
+}
+
+.button--py-blue {
+  background: var(--py-blue);
+  color: white;
+  border: none;
+  font-weight: bold;
+  padding: 0.8rem 1.5rem;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.button--py-blue:hover {
+  background: #2f6592;
   color: white;
   text-decoration: none;
+}
+
+/* Feature grid */
+.featuresGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+.featureCard {
+  background: white;
+  padding: 2rem;
+  border-radius: 4px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  border-top: 4px solid var(--py-blue);
+}
+
+.featureCard h3 {
+  color: var(--py-blue);
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.featureCard p {
+  color: var(--py-grey);
+}
+
+/* Footer styling */
+.footer {
+  background-color: var(--py-dark-blue);
+  color: white;
 }

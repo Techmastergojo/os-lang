@@ -3,29 +3,41 @@ import styles from './styles.module.css';
 
 const FeatureList = [
   {
-    title: 'What is OS-Lang?',
+    title: 'Get Started',
     description: (
       <>
-        A high-performance systems programming language compiled directly to LLVM IR, 
-        designed specifically for writing operating systems, kernels, and bare-metal drivers.
+        Whether you're new to systems programming or an experienced kernel developer, it's easy to learn and use OS-Lang.
+        <br/><br/>
+        <a href="/docs/intro" style={{fontWeight: 'bold', color: 'var(--py-blue)'}}>Start with our Beginner’s Guide</a>
       </>
     ),
   },
   {
-    title: 'Why OS-Lang?',
+    title: 'Download',
     description: (
       <>
-        It merges the precise, low-level hardware control of C with the clean, modern 
-        ergonomics and safety features of next-generation languages.
+        OS-Lang compiler and tools are available for download for all platforms!
+        <br/><br/>
+        Latest: <a href="/docs/getting-started/installation" style={{fontWeight: 'bold', color: 'var(--py-blue)'}}>OS-Lang 1.0.0</a>
       </>
     ),
   },
   {
-    title: 'Why use it?',
+    title: 'Docs',
+    description: (
+      <>
+        Documentation for OS-Lang's standard library, along with tutorials and guides, are available online.
+        <br/><br/>
+        <a href="/docs/intro" style={{fontWeight: 'bold', color: 'var(--py-blue)'}}>os-lang.dev/docs</a>
+      </>
+    ),
+  },
+  {
+    title: 'Memory Safety',
     description: (
       <>
         Say goodbye to complex linker scripts and inline assembly. Write pure, memory-safe code 
-        with <code>@unsafe</code> boundaries, built-in hardware intrinsics, and zero-overhead abstractions.
+        with <code>@unsafe</code> boundaries and zero-overhead abstractions.
       </>
     ),
   },
@@ -33,11 +45,9 @@ const FeatureList = [
 
 function Feature({title, description}) {
   return (
-    <div className={clsx('col col--4')}>
-      <div className="text--center padding-horiz--md padding-vert--lg glass-panel" style={{borderRadius: '12px', margin: '10px 0', height: '100%'}}>
-        <h3>{title}</h3>
-        <p style={{color: '#a1a1aa'}}>{description}</p>
-      </div>
+    <div className="featureCard">
+      <h3>{title}</h3>
+      <p>{description}</p>
     </div>
   );
 }
@@ -45,8 +55,8 @@ function Feature({title, description}) {
 export default function HomepageFeatures(): JSX.Element {
   return (
     <section className={styles.features} style={{padding: '4rem 0'}}>
-      <div className="container">
-        <div className="row">
+      <div className="container" style={{maxWidth: '1200px', margin: '0 auto'}}>
+        <div className="featuresGrid">
           {FeatureList.map((props, idx) => (
             <Feature key={idx} {...props} />
           ))}
