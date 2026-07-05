@@ -1,0 +1,79 @@
+:root {
+  --ifm-color-primary: #8b5cf6;
+  --ifm-color-primary-dark: #7c3aed;
+  --ifm-color-primary-darker: #6d28d9;
+  --ifm-color-primary-darkest: #5b21b6;
+  --ifm-color-primary-light: #a78bfa;
+  --ifm-color-primary-lighter: #c4b5fd;
+  --ifm-color-primary-lightest: #ddd6fe;
+  
+  --ifm-background-color: #050505;
+  --ifm-background-surface-color: #121212;
+  
+  --docusaurus-highlighted-code-line-bg: rgba(139, 92, 246, 0.2);
+  --ifm-font-family-base: 'Inter', system-ui, -apple-system, sans-serif;
+  --ifm-heading-color: #ffffff;
+  --ifm-font-color-base: #a1a1aa;
+}
+
+html[data-theme='dark'] {
+  --ifm-background-color: #050505;
+  --ifm-background-surface-color: #121212;
+  --ifm-navbar-background-color: rgba(5, 5, 5, 0.8);
+  --ifm-navbar-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+}
+
+/* Glassmorphism utility */
+.glass-panel {
+  background: rgba(18, 18, 18, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+/* Hero Section Styles */
+.heroBanner {
+  padding: 8rem 0;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  background: radial-gradient(circle at center, #1e1b4b 0%, #050505 70%);
+}
+
+.heroTitle {
+  font-size: 4rem;
+  font-weight: 800;
+  background: -webkit-linear-gradient(45deg, #a78bfa, #3b82f6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 1rem;
+}
+
+.heroSubtitle {
+  font-size: 1.5rem;
+  color: #a1a1aa;
+  margin-bottom: 2rem;
+}
+
+.buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.button--glow {
+  background: #8b5cf6;
+  color: white;
+  border: none;
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.5);
+  transition: all 0.3s ease;
+}
+
+.button--glow:hover {
+  background: #7c3aed;
+  box-shadow: 0 0 30px rgba(139, 92, 246, 0.8);
+  color: white;
+  text-decoration: none;
+}
