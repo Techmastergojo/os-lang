@@ -21,6 +21,7 @@ const config: Config = {
       {
         docs: {
           sidebarPath: './sidebars.ts',
+          routeBasePath: '/',
           editUrl: 'https://github.com/Techmastergojo/os-lang/tree/main/website/',
         },
         theme: {
@@ -43,9 +44,6 @@ const config: Config = {
           src: 'img/logo.svg', // Will use text if logo isn't present, but keeping for standard format
         },
         items: [
-          { type: 'docSidebar', sidebarId: 'tutorialSidebar', position: 'left', label: 'Documentation' },
-          { to: '/downloads', label: 'Downloads', position: 'left' },
-          { to: '/community', label: 'Community', position: 'left' },
           { href: 'https://github.com/Techmastergojo/os-lang', label: 'GitHub', position: 'right' },
         ],
       },

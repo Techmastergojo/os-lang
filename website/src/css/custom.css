@@ -1,121 +1,79 @@
 :root {
-  --ifm-color-primary: #3776ab;
-  --ifm-color-primary-dark: #2f6592;
-  --ifm-color-primary-darker: #2c5f89;
-  --ifm-color-primary-darkest: #244e71;
-  --ifm-color-primary-light: #448cc9;
-  --ifm-color-primary-lighter: #5496ce;
-  --ifm-color-primary-lightest: #85b4df;
+  --ifm-color-primary: #000000;
+  --ifm-color-primary-dark: #000000;
+  --ifm-color-primary-darker: #000000;
+  --ifm-color-primary-darkest: #000000;
+  --ifm-color-primary-light: #333333;
+  --ifm-color-primary-lighter: #444444;
+  --ifm-color-primary-lightest: #666666;
   
   --ifm-background-color: #ffffff;
-  --ifm-background-surface-color: #f6f6f6;
+  --ifm-background-surface-color: #ffffff;
   
-  --docusaurus-highlighted-code-line-bg: rgba(55, 118, 171, 0.1);
-  --ifm-font-family-base: 'Source Sans Pro', Arial, sans-serif;
-  --ifm-heading-color: #333333;
-  --ifm-font-color-base: #333333;
-
-  /* Python specific colors */
-  --py-yellow: #ffd43b;
-  --py-yellow-dark: #ffe873;
-  --py-blue: #3776ab;
-  --py-dark-blue: #212936;
-  --py-grey: #646464;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.05);
+  --ifm-font-family-base: 'Inter', system-ui, -apple-system, sans-serif;
+  --ifm-heading-color: #000000;
+  --ifm-font-color-base: #1a1a1a;
+  
+  --ifm-navbar-background-color: #ffffff;
+  --ifm-navbar-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);
 }
 
-/* Navbar styling like Python.org */
+/* Force light theme colors on everything */
+html[data-theme='dark'] {
+  --ifm-background-color: #ffffff;
+  --ifm-background-surface-color: #ffffff;
+  --ifm-heading-color: #000000;
+  --ifm-font-color-base: #1a1a1a;
+  --ifm-navbar-background-color: #ffffff;
+}
+
+/* Navbar styling */
 .navbar {
-  background-color: var(--py-dark-blue);
-  color: white;
-  border-bottom: 4px solid var(--py-yellow);
+  border-bottom: 1px solid #eaeaea;
 }
 
 .navbar__title {
-  color: white;
+  color: #000000;
+  font-weight: 800;
+  letter-spacing: -0.5px;
 }
 
 .navbar__item {
-  color: #c8d6e5;
-  font-weight: 600;
+  color: #666666;
+  font-weight: 500;
 }
 
 .navbar__item:hover, .navbar__item--active {
-  color: white;
+  color: #000000;
 }
 
-/* Hero Section Styles like Python.org */
+/* Hero Section Styles inside the markdown */
 .heroBanner {
   padding: 4rem 0;
   text-align: left;
-  position: relative;
-  overflow: hidden;
-  background-color: var(--py-dark-blue);
-  color: white;
-}
-
-.heroContainer {
-  display: flex;
-  max-width: 1200px;
-  margin: 0 auto;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 2rem;
-  gap: 2rem;
+  background-color: #ffffff;
+  border-bottom: 1px solid #eaeaea;
+  margin-bottom: 3rem;
 }
 
 .heroText {
-  flex: 1;
+  max-width: 800px;
 }
 
 .heroTitle {
-  font-size: 3rem;
-  font-weight: 700;
-  color: white;
+  font-size: 3.5rem;
+  font-weight: 800;
+  color: #000000;
   margin-bottom: 1rem;
+  letter-spacing: -1px;
 }
 
 .heroSubtitle {
-  font-size: 1.2rem;
-  color: #c8d6e5;
+  font-size: 1.5rem;
+  color: #666666;
   margin-bottom: 2rem;
   font-weight: 400;
-}
-
-.heroCode {
-  flex: 1;
-  background: #1a232d;
-  padding: 1.5rem;
-  border-radius: 8px;
-  border: 1px solid #3776ab;
-  color: #c8d6e5;
-  font-family: monospace;
-}
-
-.heroCode h3 {
-  color: var(--py-yellow);
-  font-size: 1.2rem;
-  margin-bottom: 1rem;
-  font-family: 'Source Sans Pro', Arial, sans-serif;
-}
-
-.heroCode pre {
-  background: transparent;
-  padding: 0;
-  margin: 0;
-  border: none;
-  box-shadow: none;
-}
-
-.heroCode code {
-  color: white;
-}
-
-.heroCode .comment {
-  color: #646464;
-}
-
-.heroCode .keyword {
-  color: var(--py-yellow);
 }
 
 .buttons {
@@ -125,66 +83,74 @@
   gap: 1rem;
 }
 
-.button--py-yellow {
-  background: var(--py-yellow);
-  color: #333;
-  border: none;
-  font-weight: bold;
+.button--primary {
+  background: #000000;
+  color: #ffffff;
+  border: 1px solid #000000;
+  font-weight: 600;
   padding: 0.8rem 1.5rem;
-  border-radius: 4px;
-  transition: background 0.2s;
+  border-radius: 6px;
+  transition: all 0.2s ease;
 }
 
-.button--py-yellow:hover {
-  background: #ffcc00;
-  color: #333;
+.button--primary:hover {
+  background: #333333;
+  color: #ffffff;
   text-decoration: none;
 }
 
-.button--py-blue {
-  background: var(--py-blue);
-  color: white;
-  border: none;
-  font-weight: bold;
+.button--secondary {
+  background: #ffffff;
+  color: #000000;
+  border: 1px solid #eaeaea;
+  font-weight: 600;
   padding: 0.8rem 1.5rem;
-  border-radius: 4px;
-  transition: background 0.2s;
+  border-radius: 6px;
+  transition: all 0.2s ease;
 }
 
-.button--py-blue:hover {
-  background: #2f6592;
-  color: white;
+.button--secondary:hover {
+  background: #f5f5f5;
+  color: #000000;
   text-decoration: none;
+  border-color: #dddddd;
 }
 
-/* Feature grid */
-.featuresGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 2rem;
+/* Typography improvements for long single page */
+h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-top: 3rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid #eaeaea;
+  padding-bottom: 0.5rem;
+}
+
+h2 {
+  font-size: 1.75rem;
+  font-weight: 600;
   margin-top: 2rem;
-}
-
-.featureCard {
-  background: white;
-  padding: 2rem;
-  border-radius: 4px;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-  border-top: 4px solid var(--py-blue);
-}
-
-.featureCard h3 {
-  color: var(--py-blue);
-  font-size: 1.5rem;
   margin-bottom: 1rem;
 }
 
-.featureCard p {
-  color: var(--py-grey);
+hr {
+  border: 0;
+  height: 1px;
+  background: #eaeaea;
+  margin: 4rem 0;
 }
 
-/* Footer styling */
-.footer {
-  background-color: var(--py-dark-blue);
-  color: white;
+/* Sidebar ToC adjustments */
+.table-of-contents {
+  font-size: 0.9rem;
+}
+
+.table-of-contents__link {
+  color: #666666;
+}
+
+.table-of-contents__link:hover,
+.table-of-contents__link--active {
+  color: #000000;
+  font-weight: 600;
 }
