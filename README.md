@@ -57,6 +57,23 @@ Compile it using the CLI:
 osc kernel.os
 ```
 
+### 🆕 Leopard Extension System (LEX)
+
+OS-Lang now supports a **zero-overhead, kernel-level extension architecture** called LEX. You can dynamically override OS functions and inject metadata without touching the core kernel code.
+
+```python
+# my_extension.osext
+@meta(author="Hamza", version="1.0.0", description="My Theme")
+@extend
+
+@override(target="draw_mouse_cursor")
+@unsafe
+fn custom_mouse(x: int, y: int) -> void:
+    # Your custom cursor logic here
+    pass
+```
+The compiler automatically emits this metadata into a special `.osext_meta` ELF section for the kernel to read at boot!
+
 ### 🆕 GUI App (OsGUI)
 
 Create a desktop GUI app in the same `.os` syntax:

@@ -143,6 +143,25 @@ class FunctionDeclaration(ASTNode):
     is_driver: bool = False                # @driver
     is_noreturn: bool = False              # @noreturn  (panic, halt)
     is_naked: bool = False                 # @naked     (no stack frame)
+    
+    # LEX Extensions
+    is_override: bool = False
+    override_target: Optional[str] = None
+    is_hook: bool = False
+    hook_target: Optional[str] = None
+    hook_type: Optional[str] = None        # "before" or "after"
+    is_new: bool = False
+
+@dataclass
+class ExtensionMarkerStatement(ASTNode):
+    marker_type: str                       # 'extend', 'app', 'service', 'standalone', 'driver'
+    target_module: Optional[str] = None    # for @extend(target)
+
+@dataclass
+class ExtensionMetaStatement(ASTNode):
+    name: str
+    version: str
+    author: str
 
 @dataclass
 class StructDeclaration(ASTNode):

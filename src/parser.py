@@ -138,6 +138,63 @@ class Parser:
                 else:
                     raise ParseError(f"Line {self.peek().line}: Expect 'struct' or 'hwmap' after @packed.")
 
+            # LEX Extensions
+            elif tag_name in ["app", "standalone", "service", "driver_module"]:
+                self.skip_newlines()
+                return ast.ExtensionMarkerStatement(marker_type=tag_name)
+                
+            elif tag_name == "extend":
+                self.consume(TokenType.LPAREN, "Expect '(' after @extend.")
+                target = self.consume(TokenType.IDENTIFIER, "Expect module name.")
+                self.consume(TokenType.RPAREN, "Expect ')' after target.")
+                self.skip_newlines()
+                return ast.ExtensionMarkerStatement(marker_type="extend", target_module=target.lexeme)
+                
+            elif tag_name == "meta":
+                # @meta name: "Midnight Panther Pro", version: "1.0", author: "devname"
+                self.consume(TokenType.IDENTIFIER, "Expect 'name' in @meta.")
+                self.consume(TokenType.COLON, "Expect ':' after name.")
+                name_tok = self.consume(TokenType.STRING, "Expect string for name.")
+                self.consume(TokenType.COMMA, "Expect ','")
+                
+                self.consume(TokenType.IDENTIFIER, "Expect 'version'.")
+                self.consume(TokenType.COLON, "Expect ':' after version.")
+                ver_tok = self.consume(TokenType.STRING, "Expect string for version.")
+                self.consume(TokenType.COMMA, "Expect ','")
+                
+                self.consume(TokenType.IDENTIFIER, "Expect 'author'.")
+                self.consume(TokenType.COLON, "Expect ':' after author.")
+                auth_tok = self.consume(TokenType.STRING, "Expect string for author.")
+                self.skip_newlines()
+                return ast.ExtensionMetaStatement(
+                    name=name_tok.lexeme[1:-1], 
+                    version=ver_tok.lexeme[1:-1], 
+                    author=auth_tok.lexeme[1:-1]
+                )
+
+            elif tag_name == "override":
+                self.consume(TokenType.LPAREN, "Expect '(' after @override.")
+                target = self.consume(TokenType.IDENTIFIER, "Expect target function.")
+                self.consume(TokenType.RPAREN, "Expect ')' after target.")
+                self.skip_newlines()
+                self.consume(TokenType.FN, "Expect 'fn' after @override.")
+                return self.parse_function_declaration(is_override=True, override_target=target.lexeme)
+
+            elif tag_name == "hook":
+                self.consume(TokenType.LPAREN, "Expect '(' after @hook.")
+                target = self.consume(TokenType.IDENTIFIER, "Expect target function.")
+                self.consume(TokenType.COMMA, "Expect ',' after target function.")
+                htype = self.consume(TokenType.IDENTIFIER, "Expect 'before' or 'after'.")
+                self.consume(TokenType.RPAREN, "Expect ')' after hook type.")
+                self.skip_newlines()
+                self.consume(TokenType.FN, "Expect 'fn' after @hook.")
+                return self.parse_function_declaration(is_hook=True, hook_target=target.lexeme, hook_type=htype.lexeme)
+                
+            elif tag_name == "new":
+                self.skip_newlines()
+                self.consume(TokenType.FN, "Expect 'fn' after @new.")
+                return self.parse_function_declaration(is_new=True)
+
             else:
                 raise ParseError(f"Line {tag.line}: Unknown decorator @{tag.lexeme}")
 
@@ -226,6 +283,12 @@ class Parser:
         is_driver: bool = False,
         is_noreturn: bool = False,
         is_naked: bool = False,
+        is_override: bool = False,
+        override_target: Optional[str] = None,
+        is_hook: bool = False,
+        hook_target: Optional[str] = None,
+        hook_type: Optional[str] = None,
+        is_new: bool = False,
     ) -> ast.FunctionDeclaration:
         name = self.consume(TokenType.IDENTIFIER, "Expect function name.")
         self.consume(TokenType.LPAREN, "Expect '(' after function name.")
@@ -261,6 +324,12 @@ class Parser:
             is_driver=is_driver,
             is_noreturn=is_noreturn,
             is_naked=is_naked,
+            is_override=is_override,
+            override_target=override_target,
+            is_hook=is_hook,
+            hook_target=hook_target,
+            hook_type=hook_type,
+            is_new=is_new
         )
 
     def parse_struct_declaration(self, is_hwmap: bool, is_packed: bool = False) -> ast.StructDeclaration:

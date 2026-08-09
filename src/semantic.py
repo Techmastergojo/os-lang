@@ -114,9 +114,15 @@ class SemanticAnalyzer:
     # Core Visitors
     # ==========================================
 
-    def analyze_Program(self, node: ast.Program) -> str:
+    def analyze_Program(self, node: ast.Program):
         for stmt in node.statements:
             self.analyze(stmt)
+
+    def analyze_ExtensionMarkerStatement(self, node: ast.ExtensionMarkerStatement):
+        pass
+
+    def analyze_ExtensionMetaStatement(self, node: ast.ExtensionMetaStatement):
+        pass
         return "void"
 
     def analyze_Block(self, node: ast.Block) -> str:

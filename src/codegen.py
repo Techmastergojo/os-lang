@@ -1,12 +1,13 @@
 import llvmlite.ir as ir
 import llvmlite.binding as llvm
+# pyrefly: ignore [missing-import]
 import src.ast as ast
 from typing import Dict, Any, Optional, List, Tuple
 
 class CodeGenerator:
     def __init__(self):
         self.module = ir.Module(name="os_module")
-        self.module.triple = llvm.get_default_triple()
+        self.module.triple = "i386-unknown-none-elf"
 
         self.builder: ir.IRBuilder = None
 
@@ -175,6 +176,15 @@ class CodeGenerator:
             func.linkage = 'weak_odr'
 
         self.functions[node.name.name] = func
+        
+        # Emit LEX extension metadata if this is a hook/override
+        if getattr(node, 'is_override', False):
+            self._emit_osext_entry(6, target=node.override_target, fn_ptr=func)
+        elif getattr(node, 'is_hook', False):
+            htype = 7 if node.hook_type == "before" else 8
+            self._emit_osext_entry(htype, target=node.hook_target, fn_ptr=func)
+        elif getattr(node, 'is_new', False):
+            self._emit_osext_entry(9, target=node.name.name, fn_ptr=func)
 
         block         = func.append_basic_block(name="entry")
         self.builder  = ir.IRBuilder(block)
@@ -412,6 +422,21 @@ class CodeGenerator:
     def generate_ReturnStatement(self, node: ast.ReturnStatement):
         if node.value:
             val = self.generate(node.value)
+            # Auto-cast return value to match function's return type
+            func = self.builder.function
+            ret_type = func.type.pointee.return_type
+            if val.type != ret_type:
+                if isinstance(val.type, ir.IntType) and isinstance(ret_type, ir.IntType):
+                    if val.type.width > ret_type.width:
+                        val = self.builder.trunc(val, ret_type)
+                    else:
+                        val = self.builder.zext(val, ret_type)
+                elif isinstance(val.type, ir.PointerType) and isinstance(ret_type, ir.IntType):
+                    val = self.builder.ptrtoint(val, ret_type)
+                elif isinstance(val.type, ir.IntType) and isinstance(ret_type, ir.PointerType):
+                    val = self.builder.inttoptr(val, ret_type)
+                else:
+                    val = self.builder.bitcast(val, ret_type)
             self.builder.ret(val)
         else:
             self.builder.ret_void()
@@ -934,6 +959,56 @@ class CodeGenerator:
             pass
         return None
 
+    def _emit_osext_entry(self, entry_type: int, target: str = "", fn_ptr: ir.Value = None,
+                          meta_name: str = "", meta_version: str = "", meta_author: str = ""):
+        # Struct: {i32, i32, [32 x i8], i8*, [32 x i8], [16 x i8], [32 x i8]}
+        arr32 = ir.ArrayType(ir.IntType(8), 32)
+        arr16 = ir.ArrayType(ir.IntType(8), 16)
+        struct_ty = ir.LiteralStructType([
+            ir.IntType(32), ir.IntType(32), arr32, ir.PointerType(ir.IntType(8)),
+            arr32, arr16, arr32
+        ])
+        
+        def pad_str(s: str, length: int) -> list:
+            b = s.encode('utf8')
+            b = b[:length-1] + b'\0'
+            b += b'\0' * (length - len(b))
+            return [ir.Constant(ir.IntType(8), c) for c in b]
+
+        c_target = ir.Constant(arr32, pad_str(target, 32))
+        c_name = ir.Constant(arr32, pad_str(meta_name, 32))
+        c_ver = ir.Constant(arr16, pad_str(meta_version, 16))
+        c_auth = ir.Constant(arr32, pad_str(meta_author, 32))
+        
+        c_magic = ir.Constant(ir.IntType(32), 0x4C455800)
+        c_type = ir.Constant(ir.IntType(32), entry_type)
+        
+        if fn_ptr is not None:
+            c_fn = fn_ptr
+            # Cast to i8* if needed
+            if c_fn.type != ir.PointerType(ir.IntType(8)):
+                c_fn = ir.Constant.bitcast(c_fn, ir.PointerType(ir.IntType(8)))
+        else:
+            c_fn = ir.Constant(ir.PointerType(ir.IntType(8)), None)
+            
+        init_val = ir.Constant(struct_ty, [c_magic, c_type, c_target, c_fn, c_name, c_ver, c_auth])
+        
+        gv = ir.GlobalVariable(self.module, struct_ty, name=f"__osext_entry_{self._str_counter}")
+        self._str_counter += 1
+        gv.section = ".osext_meta"
+        gv.initializer = init_val
+        # Needs to be "appending" or "weak" to avoid internal symbols getting optimized out?
+        # Let's use "linkonce_odr" or "internal" with used attribute, or just "weak"
+        gv.linkage = "weak"
+
+    def generate_ExtensionMarkerStatement(self, node: ast.ExtensionMarkerStatement):
+        types = {"extend": 1, "app": 2, "standalone": 3, "driver": 4, "service": 5}
+        t = types.get(node.marker_type, 0)
+        self._emit_osext_entry(t, target=node.target_module or "")
+
+    def generate_ExtensionMetaStatement(self, node: ast.ExtensionMetaStatement):
+        self._emit_osext_entry(10, meta_name=node.name, meta_version=node.version, meta_author=node.author)
+
     # ==========================================
     # Output
     # ==========================================
@@ -942,7 +1017,7 @@ class CodeGenerator:
         return str(self.module)
 
     def save_object_file(self, filename: str):
-        target         = llvm.Target.from_default_triple()
+        target         = llvm.Target.from_triple("x86_64-unknown-none-elf")
         target_machine = target.create_target_machine(reloc='pic', codemodel='default')
         backing_mod    = llvm.parse_assembly(str(self.module))
         backing_mod.verify()
