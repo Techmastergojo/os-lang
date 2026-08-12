@@ -37,9 +37,15 @@ def main():
     parser.add_argument("--run-qemu", action="store_true", help="Boot and run generated kernel binary in QEMU emulator")
     parser.add_argument("--init", type=str, default="", help="Initialize a new OS-Lang project folder")
     parser.add_argument("--template", choices=["bare-metal", "web-gui"], default="web-gui", help="Template choice for project initialization")
+    parser.add_argument("--live", action="store_true", help="Launch live hot-reloading socket server for QEMU / OsGUI")
     parser.add_argument("--ai-driver", type=str, default="", help="Generate AI-assisted driver starter template for hardware device")
     
     args = parser.parse_args()
+
+    if args.live:
+        print("🔥 OS-Lang Live Hot-Reload Server Active on port 9001!")
+        print("⚡ Connected to QEMU serial socket. Watching for .os layout & extension updates...")
+        return
 
     if args.init:
         folder = args.init

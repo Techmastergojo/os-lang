@@ -199,6 +199,19 @@ class TokenType(Enum):
     ITEM = auto()           # item "New File"
     SUBMENU = auto()        # submenu Zoom:
 
+    # --- OS Heaven Features ---
+    PROCESS = auto()        # process Shell:
+    THREAD = auto()         # thread Worker:
+    PRIORITY = auto()       # priority: HIGH
+    RING = auto()           # ring: USER_MODE
+    PACKET = auto()         # packet EthernetFrame:
+    ON_PACKET = auto()      # @on_packet
+    VFS = auto()            # vfs RootFS:
+    MOUNT = auto()          # mount "/dev/sda1" as "/" type FAT32
+    GUARD = auto()          # @guard
+    PANIC = auto()          # panic("message")
+    TASK_YIELD = auto()     # task_yield()
+
 @dataclass
 class Token:
     type: TokenType

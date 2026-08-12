@@ -196,6 +196,10 @@ class CodeGenerator:
         self.builder  = ir.IRBuilder(block)
         self.variables = {}
 
+        if getattr(node, 'is_guard', False):
+            canary = self.builder.alloca(ir.IntType(64), name="__stack_canary")
+            self.builder.store(ir.Constant(ir.IntType(64), 0xDEADBEEFCAFE), canary)
+
         # Stack-allocate parameters
         for i, param in enumerate(node.parameters):
             param_name = param[0].name
@@ -416,6 +420,29 @@ class CodeGenerator:
             lfb_base = self.builder.inttoptr(ir.Constant(i64, 0xFD000000), ir.PointerType(i32))
             pix_ptr = self.builder.gep(lfb_base, [offset])
             self.builder.store(col_32, pix_ptr)
+            return None
+
+        elif n == "task_yield":
+            fn_type = ir.FunctionType(ir.VoidType(), [])
+            asm_fn = ir.InlineAsm(fn_type, "int $$0x81", "", side_effect=True)
+            self.builder.call(asm_fn, [])
+            return None
+
+        elif n == "kpanic":
+            vga_base = self.builder.inttoptr(ir.Constant(i64, 0xB8000), ir.PointerType(ir.IntType(8)))
+            self.builder.store(ir.Constant(ir.IntType(8), 80), vga_base)
+            col_ptr = self.builder.gep(vga_base, [ir.Constant(i64, 1)])
+            self.builder.store(ir.Constant(ir.IntType(8), 0x4F), col_ptr)
+            fn_type = ir.FunctionType(ir.VoidType(), [])
+            asm_fn = ir.InlineAsm(fn_type, "hlt", "", side_effect=True)
+            self.builder.call(asm_fn, [])
+            return None
+
+        elif n == "kmalloc":
+            size = args[0] if args else ir.Constant(i64, 32)
+            return self.builder.inttoptr(ir.Constant(i64, 0x00200000), ir.PointerType(ir.IntType(8)))
+
+        elif n == "kfree":
             return None
 
         return ir.Constant(i64, 0)
@@ -1107,6 +1134,43 @@ class CodeGenerator:
         gv.initializer = c_name
         if node.body:
             self.generate(node.body)
+
+    # ==========================================
+    # OS Heaven Codegen Handlers
+    # ==========================================
+
+    def generate_ProcessDeclaration(self, node: ast.ProcessDeclaration):
+        proc_name = node.name.name
+        i8_ptr = ir.PointerType(ir.IntType(8))
+        c_name = self.create_global_string(proc_name)
+        gv = ir.GlobalVariable(self.module, i8_ptr, name=f"__process_{proc_name}")
+        gv.initializer = c_name
+        if node.body:
+            self.generate(node.body)
+
+    def generate_PacketDeclaration(self, node: ast.PacketDeclaration):
+        field_types = []
+        for fname, ftype in node.fields:
+            field_types.append(self.get_llvm_type(ftype))
+        st = ir.LiteralStructType(field_types, packed=True)
+        self.struct_types[node.name.name] = st
+        self.struct_fields[node.name.name] = [f[0] for f in node.fields]
+
+    def generate_VfsMountDeclaration(self, node: ast.VfsMountDeclaration):
+        vfs_name = node.name.name
+        i8_ptr = ir.PointerType(ir.IntType(8))
+        c_name = self.create_global_string(vfs_name)
+        gv = ir.GlobalVariable(self.module, i8_ptr, name=f"__vfs_{vfs_name}")
+        gv.initializer = c_name
+
+    def generate_PanicStatement(self, node: ast.PanicStatement):
+        vga_base = self.builder.inttoptr(ir.Constant(ir.IntType(64), 0xB8000), ir.PointerType(ir.IntType(8)))
+        self.builder.store(ir.Constant(ir.IntType(8), 75), vga_base)
+        col_ptr = self.builder.gep(vga_base, [ir.Constant(ir.IntType(64), 1)])
+        self.builder.store(ir.Constant(ir.IntType(8), 0x4F), col_ptr)
+        fn_type = ir.FunctionType(ir.VoidType(), [])
+        asm_fn = ir.InlineAsm(fn_type, "hlt", "", side_effect=True)
+        self.builder.call(asm_fn, [])
 
     # ==========================================
     # Output

@@ -56,6 +56,10 @@ class SemanticAnalyzer:
         "vga_write":      (["int", "int", "u8", "u8"], "void"),
         "draw_cursor":    (["int", "int", "u8"], "void"),
         "draw_pixel":     (["int", "int", "u32"], "void"),
+        "task_yield":     ([], "void"),
+        "kpanic":         (["u64"], "void"),
+        "kmalloc":        (["u64"], "ptr"),
+        "kfree":          (["ptr"], "void"),
     }
 
     def __init__(self):
@@ -621,4 +625,29 @@ class SemanticAnalyzer:
             self.analyze(val_node)
         if node.body:
             self.analyze(node.body)
+        return "void"
+
+    # ==========================================
+    # OS Heaven Visitors
+    # ==========================================
+
+    def analyze_ProcessDeclaration(self, node: ast.ProcessDeclaration) -> str:
+        for key, val_node in node.properties:
+            if not isinstance(val_node, ast.Identifier):
+                self.analyze(val_node)
+        if node.body:
+            self.analyze(node.body)
+        return "void"
+
+    def analyze_PacketDeclaration(self, node: ast.PacketDeclaration) -> str:
+        fields = {f[0]: f[1] for f in node.fields}
+        self.structs[node.name.name] = fields
+        self.current_scope.define(Symbol(node.name.name, "struct_decl"))
+        return "void"
+
+    def analyze_VfsMountDeclaration(self, node: ast.VfsMountDeclaration) -> str:
+        return "void"
+
+    def analyze_PanicStatement(self, node: ast.PanicStatement) -> str:
+        self.analyze(node.message)
         return "void"

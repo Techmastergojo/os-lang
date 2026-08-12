@@ -229,6 +229,17 @@ class Lexer:
                     "menu":    TokenType.MENU,
                     "item":    TokenType.ITEM,
                     "submenu": TokenType.SUBMENU,
+                    # OS Heaven Keywords
+                    "process":    TokenType.PROCESS,
+                    "thread":     TokenType.THREAD,
+                    "priority":   TokenType.PRIORITY,
+                    "ring":       TokenType.RING,
+                    "packet":     TokenType.PACKET,
+                    "vfs":        TokenType.VFS,
+                    "mount":      TokenType.MOUNT,
+                    "guard":      TokenType.GUARD,
+                    "panic":      TokenType.PANIC,
+                    "task_yield": TokenType.TASK_YIELD,
                 }
                 token_type = keywords.get(lexeme, TokenType.IDENTIFIER)
                 tokens.append(Token(token_type, lexeme, self.line, start_col))

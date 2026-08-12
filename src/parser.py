@@ -49,7 +49,8 @@ class Parser:
                 TokenType.MAIN, TokenType.HEADER, TokenType.FOOTER, TokenType.SECTION,
                 TokenType.CONTAINER, TokenType.NAV, TokenType.PANEL, TokenType.CARD,
                 TokenType.LABEL, TokenType.BUTTON, TokenType.ROW_PROP, TokenType.COL,
-                TokenType.LAYOUT, TokenType.ALIGN, TokenType.JUSTIFY, TokenType.DIRECTION, TokenType.FLEX_PROP
+                TokenType.LAYOUT, TokenType.ALIGN, TokenType.JUSTIFY, TokenType.DIRECTION, TokenType.FLEX_PROP,
+                TokenType.PANIC, TokenType.GUARD, TokenType.PROCESS, TokenType.THREAD, TokenType.PACKET, TokenType.VFS, TokenType.MOUNT
             )
             if self.peek().type in IDENT_KEYWORDS:
                 return self.advance()
@@ -84,6 +85,10 @@ class Parser:
         if self.match(TokenType.AT):
             if self.match(TokenType.UNSAFE):
                 tag_name = "unsafe"
+            elif self.match(TokenType.GUARD):
+                tag_name = "guard"
+            elif self.match(TokenType.ON_PACKET):
+                tag_name = "on_packet"
             else:
                 tag = self.consume(TokenType.IDENTIFIER, "Expect tag after '@'.")
                 tag_name = tag.lexeme
@@ -149,6 +154,24 @@ class Parser:
                     is_unsafe=True,
                     is_naked=True,
                 )
+
+            # -- @guard --
+            elif tag_name == "guard":
+                self.skip_newlines()
+                self.consume(TokenType.FN, "Expect 'fn' after @guard.")
+                return self.parse_function_declaration(is_guard=True)
+
+            # -- @on_packet --
+            elif tag_name == "on_packet":
+                if self.check(TokenType.LPAREN):
+                    self.advance()
+                    if self.check(TokenType.IDENTIFIER): self.advance()
+                    if self.check(TokenType.COLON) or self.check(TokenType.ASSIGN): self.advance()
+                    self.consume(TokenType.STRING, "Expect interface string.")
+                    self.consume(TokenType.RPAREN, "Expect ')'")
+                self.skip_newlines()
+                self.consume(TokenType.FN, "Expect 'fn' after @on_packet.")
+                return self.parse_function_declaration(is_unsafe=True)
 
             # -- @packed --
             elif tag_name == "packed":
@@ -256,6 +279,18 @@ class Parser:
         if self.match(TokenType.FN):
             return self.parse_function_declaration()
 
+        if self.match(TokenType.PROCESS):
+            return self.parse_process_declaration()
+
+        if self.match(TokenType.PACKET):
+            return self.parse_packet_declaration()
+
+        if self.match(TokenType.VFS):
+            return self.parse_vfs_declaration()
+
+        if self.match(TokenType.PANIC):
+            return self.parse_panic_statement()
+
         if self.match(TokenType.STRUCT):
             return self.parse_struct_declaration(is_hwmap=False)
 
@@ -362,6 +397,81 @@ class Parser:
             
         return ast.GuiLayoutElement(element_type=element_type, name=ast.Identifier(name_str), properties=properties, body=ast.Block(statements=children))
 
+    def parse_process_declaration(self) -> ast.ProcessDeclaration:
+        name = self.consume(TokenType.IDENTIFIER, "Expect process name.")
+        self.consume(TokenType.COLON, "Expect ':' after process name.")
+        self.consume(TokenType.NEWLINE, "Expect newline after ':'.")
+        self.consume(TokenType.INDENT, "Expect block indentation.")
+
+        properties = []
+        body_statements = []
+
+        while not self.check(TokenType.DEDENT) and not self.is_at_end():
+            self.skip_newlines()
+            if self.check(TokenType.DEDENT):
+                break
+
+            if self.peek_next().type == TokenType.COLON and self.peek().type not in (TokenType.NEWLINE, TokenType.INDENT, TokenType.DEDENT):
+                key = self.advance().lexeme
+                self.consume(TokenType.COLON, "Expect ':' after property key.")
+                val = self.parse_expression()
+                properties.append((key, val))
+                self.match(TokenType.NEWLINE)
+            else:
+                body_statements.append(self.parse_statement())
+
+        self.consume(TokenType.DEDENT, "Expect dedent at end of process.")
+        return ast.ProcessDeclaration(name=ast.Identifier(name.lexeme), properties=properties, body=ast.Block(statements=body_statements))
+
+    def parse_packet_declaration(self) -> ast.PacketDeclaration:
+        name = self.consume(TokenType.IDENTIFIER, "Expect packet name.")
+        self.consume(TokenType.COLON, "Expect ':' after packet name.")
+        self.consume(TokenType.NEWLINE, "Expect newline after ':'.")
+        self.consume(TokenType.INDENT, "Expect block indentation.")
+
+        fields = []
+        while not self.check(TokenType.DEDENT) and not self.is_at_end():
+            self.skip_newlines()
+            if self.check(TokenType.DEDENT):
+                break
+            field_name = self.consume(TokenType.IDENTIFIER, "Expect field name.")
+            self.consume(TokenType.COLON, "Expect ':' after field name.")
+            type_str = self.parse_type_string()
+            fields.append((field_name.lexeme, type_str))
+            self.match(TokenType.NEWLINE)
+
+        self.consume(TokenType.DEDENT, "Expect dedent at end of packet.")
+        return ast.PacketDeclaration(name=ast.Identifier(name.lexeme), fields=fields)
+
+    def parse_vfs_declaration(self) -> ast.VfsMountDeclaration:
+        name = self.consume(TokenType.IDENTIFIER, "Expect VFS name.")
+        self.consume(TokenType.COLON, "Expect ':' after VFS name.")
+        self.consume(TokenType.NEWLINE, "Expect newline after ':'.")
+        self.consume(TokenType.INDENT, "Expect block indentation.")
+
+        mounts = []
+        while not self.check(TokenType.DEDENT) and not self.is_at_end():
+            self.skip_newlines()
+            if self.check(TokenType.DEDENT):
+                break
+            self.consume(TokenType.MOUNT, "Expect 'mount' keyword in VFS definition.")
+            device = self.consume(TokenType.STRING, "Expect device string.")
+            self.consume(TokenType.AS, "Expect 'as' keyword.")
+            target = self.consume(TokenType.STRING, "Expect mount point string.")
+            self.consume(TokenType.IDENTIFIER, "Expect 'type' keyword.")
+            fstype = self.consume(TokenType.IDENTIFIER, "Expect file system type.")
+            mounts.append((device.lexeme, target.lexeme, fstype.lexeme))
+            self.match(TokenType.NEWLINE)
+
+        self.consume(TokenType.DEDENT, "Expect dedent at end of vfs.")
+        return ast.VfsMountDeclaration(name=ast.Identifier(name.lexeme), mounts=mounts)
+
+    def parse_panic_statement(self) -> ast.PanicStatement:
+        self.consume(TokenType.LPAREN, "Expect '(' after panic.")
+        msg = self.parse_expression()
+        self.consume(TokenType.RPAREN, "Expect ')' after panic message.")
+        return ast.PanicStatement(message=msg)
+
     def parse_block(self) -> ast.Block:
         self.consume(TokenType.COLON, "Expect ':' before block.")
         
@@ -401,6 +511,7 @@ class Parser:
         hook_target: Optional[str] = None,
         hook_type: Optional[str] = None,
         is_new: bool = False,
+        is_guard: bool = False,
     ) -> ast.FunctionDeclaration:
         name = self.consume(TokenType.IDENTIFIER, "Expect function name.")
         self.consume(TokenType.LPAREN, "Expect '(' after function name.")
@@ -441,7 +552,8 @@ class Parser:
             is_hook=is_hook,
             hook_target=hook_target,
             hook_type=hook_type,
-            is_new=is_new
+            is_new=is_new,
+            is_guard=is_guard,
         )
 
     def parse_struct_declaration(self, is_hwmap: bool, is_packed: bool = False) -> ast.StructDeclaration:
@@ -871,7 +983,7 @@ class Parser:
             self.consume(TokenType.RBRACKET, "Expect ']' after array elements.")
             return ast.ArrayLiteral(elements=elements)
 
-        if self.match(TokenType.IDENTIFIER, TokenType.ROW_PROP, TokenType.COL, TokenType.ALIGN, TokenType.JUSTIFY, TokenType.DIRECTION, TokenType.LAYOUT, TokenType.FLEX_PROP):
+        if self.match(TokenType.IDENTIFIER, TokenType.TASK_YIELD, TokenType.PANIC, TokenType.ROW_PROP, TokenType.COL, TokenType.ALIGN, TokenType.JUSTIFY, TokenType.DIRECTION, TokenType.LAYOUT, TokenType.FLEX_PROP):
             name = self.previous().lexeme
 
             # ── Phase 9: OS intrinsic calls ──────────────────────────────
@@ -879,7 +991,7 @@ class Parser:
                               "outb", "outw", "outl", "inb", "inw", "inl",
                               "memory_barrier", "volatile_load", "volatile_store",
                               "atomic_cmpxchg", "atomic_xchg", "atomic_add", "atomic_sub",
-                              "vga_write", "draw_cursor", "draw_pixel"}
+                              "vga_write", "draw_cursor", "draw_pixel", "task_yield", "kpanic", "kmalloc", "kfree"}
             if name in OS_INTRINSICS and self.check(TokenType.LPAREN):
                 self.advance()  # consume '('
                 arguments = []

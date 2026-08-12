@@ -151,6 +151,27 @@ class FunctionDeclaration(ASTNode):
     hook_target: Optional[str] = None
     hook_type: Optional[str] = None        # "before" or "after"
     is_new: bool = False
+    is_guard: bool = False
+
+@dataclass
+class ProcessDeclaration(ASTNode):
+    name: 'Identifier'
+    properties: List[tuple]
+    body: Optional[Block] = None
+
+@dataclass
+class PacketDeclaration(ASTNode):
+    name: 'Identifier'
+    fields: List[tuple]
+
+@dataclass
+class VfsMountDeclaration(ASTNode):
+    name: 'Identifier'
+    mounts: List[tuple]
+
+@dataclass
+class PanicStatement(ASTNode):
+    message: ASTNode
 
 @dataclass
 class ExtensionMarkerStatement(ASTNode):
