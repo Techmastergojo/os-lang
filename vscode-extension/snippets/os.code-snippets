@@ -1,0 +1,81 @@
+{
+  "Web OsGUI Desktop App": {
+    "prefix": "guiapp",
+    "body": [
+      "guiapp ${1:MyApp}:",
+      "    title: \"${2:Leopard OS}\"",
+      "    width: ${3:1024}",
+      "    height: ${4:768}",
+      "    background: \"#0f0f1a\"",
+      "",
+      "    window ${5:MainWin}:",
+      "        header ${6:TopNav}:",
+      "            align: center",
+      "            justify: space_between",
+      "            bg: \"#161625\"",
+      "            height: 50",
+      "",
+      "            label ${7:logo}:",
+      "                text: \"${8:OS-Lang Web Desktop}\"",
+      "                color: \"#00ffcc\"",
+      "",
+      "        container ${9:AppBody}:",
+      "            direction: row",
+      "            flex: 1",
+      "",
+      "            sidebar ${10:LeftPanel}:",
+      "                width: 200",
+      "                bg: \"#1a1a2e\"",
+      "",
+      "            main ${11:Workspace}:",
+      "                flex: 1",
+      "                align: center",
+      "                justify: center",
+      "",
+      "        footer ${12:Status}:",
+      "            height: 30",
+      "            align: center"
+    ],
+    "description": "Create a web-style OsGUI desktop app"
+  },
+
+  "Hardware Interrupt Handler": {
+    "prefix": "interrupt",
+    "body": [
+      "@interrupt(${1:33})",
+      "fn ${2:keyboard_handler}():",
+      "    let ${3:key}: int = inb(${4:0x60})",
+      "    vga_write(0, 0, ${3:key} as u8, 15)",
+      "    outb(0x20, 0x20)"
+    ],
+    "description": "Create an interrupt vector handler"
+  },
+
+  "Hardware Driver": {
+    "prefix": "driver",
+    "body": [
+      "@driver",
+      "fn init_${1:device}_driver():",
+      "    outb(${2:0x3F8}, 0x00)",
+      "    let mut status: u8 = inb(${2:0x3F8}) as u8",
+      "    vga_write(0, 0, status, 15)"
+    ],
+    "description": "Create a hardware driver initializer"
+  },
+
+  "VGA Write": {
+    "prefix": "vga_write",
+    "body": [
+      "vga_write(${1:x}, ${2:y}, ${3:char} as u8, ${4:15})"
+    ],
+    "description": "Write character to VGA text buffer"
+  },
+
+  "Draw Mouse Cursor": {
+    "prefix": "draw_cursor",
+    "body": [
+      "draw_cursor(${1:x}, ${2:y}, ${3:14})"
+    ],
+    "description": "Draw mouse cursor on screen"
+  }
+}

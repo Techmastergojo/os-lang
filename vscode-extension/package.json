@@ -29,6 +29,12 @@
         "scopeName": "source.os",
         "path": "./syntaxes/os.tmLanguage.json"
       }
+    ],
+    "snippets": [
+      {
+        "language": "os",
+        "path": "./snippets/os.code-snippets"
+      }
     ]
   }
 }

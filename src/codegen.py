@@ -5,9 +5,10 @@ import src.ast as ast
 from typing import Dict, Any, Optional, List, Tuple
 
 class CodeGenerator:
-    def __init__(self):
+    def __init__(self, target_triple: str = "x86_64-unknown-none-elf"):
+        self.target_triple = target_triple
         self.module = ir.Module(name="os_module")
-        self.module.triple = "i386-unknown-none-elf"
+        self.module.triple = target_triple
 
         self.builder: ir.IRBuilder = None
 
@@ -28,10 +29,15 @@ class CodeGenerator:
         # Global string counter (for unique names)
         self._str_counter = 0
 
-        # Initialize LLVM for native target + inline asm
-        llvm.initialize_native_target()
-        llvm.initialize_native_asmprinter()
-        llvm.initialize_native_asmparser()
+        # Initialize LLVM for all cross-compilation targets
+        try:
+            llvm.initialize_all_targets()
+            llvm.initialize_all_asmprinters()
+            llvm.initialize_all_asmparsers()
+        except Exception:
+            llvm.initialize_native_target()
+            llvm.initialize_native_asmprinter()
+            llvm.initialize_native_asmparser()
 
     # ==========================================
     # Type Resolution
@@ -151,7 +157,7 @@ class CodeGenerator:
         func      = ir.Function(self.module, func_type, name=node.name.name)
 
         # ── Calling convention ─────────────────────────────────────────
-        if node.is_interrupt:
+        if node.is_interrupt and ("x86" in self.module.triple or "i386" in self.module.triple or "i686" in self.module.triple):
             func.calling_convention = 'x86_intrcc'
             # NOTE: x86_intrcc does not allow ptr params without byval.
             # Real interrupt handlers access the frame via the stack directly.
@@ -371,6 +377,47 @@ class CodeGenerator:
             if val.type != i64: val = self.builder.zext(val, i64) if val.type.width < 64 else self.builder.trunc(val, i64)
             return self.builder.atomic_rmw("sub", ptr, val, "seq_cst")
 
+        elif n == "vga_write":
+            x, y, ch, color = args[0], args[1], args[2], args[3]
+            x_64 = self.builder.zext(x, i64) if x.type.width < 64 else self.builder.trunc(x, i64)
+            y_64 = self.builder.zext(y, i64) if y.type.width < 64 else self.builder.trunc(y, i64)
+            ch_8 = self.builder.trunc(ch, i8) if ch.type.width > 8 else (self.builder.zext(ch, i8) if ch.type.width < 8 else ch)
+            col_8 = self.builder.trunc(color, i8) if color.type.width > 8 else (self.builder.zext(color, i8) if color.type.width < 8 else color)
+
+            offset = self.builder.mul(self.builder.add(self.builder.mul(y_64, ir.Constant(i64, 80)), x_64), ir.Constant(i64, 2))
+            vga_base = self.builder.inttoptr(ir.Constant(i64, 0xB8000), ir.PointerType(i8))
+            ch_ptr = self.builder.gep(vga_base, [offset])
+            col_ptr = self.builder.gep(vga_base, [self.builder.add(offset, ir.Constant(i64, 1))])
+            self.builder.store(ch_8, ch_ptr)
+            self.builder.store(col_8, col_ptr)
+            return None
+
+        elif n == "draw_cursor":
+            x, y, color = args[0], args[1], args[2]
+            x_64 = self.builder.zext(x, i64) if x.type.width < 64 else self.builder.trunc(x, i64)
+            y_64 = self.builder.zext(y, i64) if y.type.width < 64 else self.builder.trunc(y, i64)
+            col_8 = self.builder.trunc(color, i8) if color.type.width > 8 else (self.builder.zext(color, i8) if color.type.width < 8 else color)
+
+            offset = self.builder.mul(self.builder.add(self.builder.mul(y_64, ir.Constant(i64, 80)), x_64), ir.Constant(i64, 2))
+            vga_base = self.builder.inttoptr(ir.Constant(i64, 0xB8000), ir.PointerType(i8))
+            ch_ptr = self.builder.gep(vga_base, [offset])
+            col_ptr = self.builder.gep(vga_base, [self.builder.add(offset, ir.Constant(i64, 1))])
+            self.builder.store(ir.Constant(i8, 219), ch_ptr)
+            self.builder.store(col_8, col_ptr)
+            return None
+
+        elif n == "draw_pixel":
+            x, y, color = args[0], args[1], args[2]
+            x_64 = self.builder.zext(x, i64) if x.type.width < 64 else self.builder.trunc(x, i64)
+            y_64 = self.builder.zext(y, i64) if y.type.width < 64 else self.builder.trunc(y, i64)
+            col_32 = self.builder.trunc(color, i32) if color.type.width > 32 else (self.builder.zext(color, i32) if color.type.width < 32 else color)
+
+            offset = self.builder.mul(self.builder.add(self.builder.mul(y_64, ir.Constant(i64, 1024)), x_64), ir.Constant(i64, 4))
+            lfb_base = self.builder.inttoptr(ir.Constant(i64, 0xFD000000), ir.PointerType(i32))
+            pix_ptr = self.builder.gep(lfb_base, [offset])
+            self.builder.store(col_32, pix_ptr)
+            return None
+
         return ir.Constant(i64, 0)
 
     def generate_ImportStatement(self, node: ast.ImportStatement):
@@ -462,6 +509,16 @@ class CodeGenerator:
             llvm_type = val.type
         else:
             llvm_type = self.get_llvm_type("int")
+
+        # Handle top-level global variables
+        if self.builder is None or self.builder.block is None:
+            gv = ir.GlobalVariable(self.module, llvm_type, name=node.name.name)
+            if val is not None and isinstance(val, ir.Constant):
+                gv.initializer = val
+            else:
+                gv.initializer = ir.Constant(llvm_type, 0)
+            self.variables[node.name.name] = gv
+            return
 
         ptr = self.builder.alloca(llvm_type, name=node.name.name)
         self.variables[node.name.name] = ptr
@@ -724,24 +781,33 @@ class CodeGenerator:
     def generate_BoolLiteral(self, node: ast.BoolLiteral):
         return ir.Constant(ir.IntType(64), 1 if node.value else 0)
 
-    def generate_StringLiteral(self, node: ast.StringLiteral):
-        text      = node.value.replace('\\n', '\n').replace('\\t', '\t') + '\0'
-        byte_arr  = bytearray(text, 'utf8')
-        c_str_ty  = ir.ArrayType(ir.IntType(8), len(byte_arr))
-        name      = f".str.{self._str_counter}"
+    def create_global_string(self, val: str):
+        text = val.replace('\\n', '\n').replace('\\t', '\t') + '\0'
+        byte_arr = bytearray(text, 'utf8')
+        c_str_ty = ir.ArrayType(ir.IntType(8), len(byte_arr))
+        name = f".str.{self._str_counter}"
         self._str_counter += 1
 
         global_str = ir.GlobalVariable(self.module, c_str_ty, name=name)
-        global_str.linkage        = "internal"
+        global_str.linkage = "internal"
         global_str.global_constant = True
-        global_str.initializer    = ir.Constant(c_str_ty, byte_arr)
-        return self.builder.bitcast(global_str, ir.PointerType(ir.IntType(8)))
+        global_str.initializer = ir.Constant(c_str_ty, byte_arr)
+        if self.builder and self.builder.block:
+            return self.builder.bitcast(global_str, ir.PointerType(ir.IntType(8)))
+        return ir.Constant.bitcast(global_str, ir.PointerType(ir.IntType(8)))
+
+    def generate_StringLiteral(self, node: ast.StringLiteral):
+        return self.create_global_string(node.value)
 
     def generate_Identifier(self, node: ast.Identifier):
+        if node.name == "pass":
+            return ir.Constant(ir.IntType(64), 0)
         if node.name in self.variables:
             ptr = self.variables[node.name]
             return self.builder.load(ptr, name=node.name + "_val")
-        raise Exception(f"Undefined variable in IR: '{node.name}'")
+        elif node.name in self.module.globals:
+            return self.builder.load(self.module.globals[node.name], name=node.name + "_val")
+        return self.create_global_string(node.name)
 
     def generate_BinaryOp(self, node: ast.BinaryOp):
         left  = self.generate(node.left)
@@ -1010,14 +1076,48 @@ class CodeGenerator:
         self._emit_osext_entry(10, meta_name=node.name, meta_version=node.version, meta_author=node.author)
 
     # ==========================================
+    # OsGUI Codegen Handlers
+    # ==========================================
+
+    def generate_GuiAppDeclaration(self, node: ast.GuiAppDeclaration):
+        app_name = node.name.name
+        # Emit global layout descriptor variable
+        i8_ptr = ir.PointerType(ir.IntType(8))
+        c_name = self.create_global_string(app_name)
+        gv = ir.GlobalVariable(self.module, i8_ptr, name=f"__guiapp_{app_name}")
+        gv.initializer = c_name
+        if node.body:
+            self.generate(node.body)
+
+    def generate_GuiWindowDeclaration(self, node: ast.GuiWindowDeclaration):
+        win_name = node.name.name
+        i8_ptr = ir.PointerType(ir.IntType(8))
+        c_name = self.create_global_string(win_name)
+        gv = ir.GlobalVariable(self.module, i8_ptr, name=f"__guiwin_{win_name}")
+        gv.initializer = c_name
+        if node.body:
+            self.generate(node.body)
+
+    def generate_GuiLayoutElement(self, node: ast.GuiLayoutElement):
+        elem_name = f"{node.element_type}_{node.name.name}"
+        i8_ptr = ir.PointerType(ir.IntType(8))
+        c_name = self.create_global_string(elem_name)
+        gv = ir.GlobalVariable(self.module, i8_ptr, name=f"__guielem_{self._str_counter}")
+        self._str_counter += 1
+        gv.initializer = c_name
+        if node.body:
+            self.generate(node.body)
+
+    # ==========================================
     # Output
     # ==========================================
 
     def get_ir(self) -> str:
         return str(self.module)
 
-    def save_object_file(self, filename: str):
-        target         = llvm.Target.from_triple("x86_64-unknown-none-elf")
+    def save_object_file(self, filename: str, target_triple: str = "x86_64-unknown-none-elf"):
+        self.module.triple = target_triple
+        target         = llvm.Target.from_triple(target_triple)
         target_machine = target.create_target_machine(reloc='pic', codemodel='default')
         backing_mod    = llvm.parse_assembly(str(self.module))
         backing_mod.verify()

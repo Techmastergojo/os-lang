@@ -13,6 +13,11 @@ class Parser:
     def peek(self) -> Token:
         return self.tokens[self.current]
 
+    def peek_next(self) -> Token:
+        if self.current + 1 >= len(self.tokens):
+            return self.tokens[-1]
+        return self.tokens[self.current + 1]
+
     def previous(self) -> Token:
         return self.tokens[self.current - 1]
 
@@ -39,7 +44,24 @@ class Parser:
     def consume(self, token_type: TokenType, message: str) -> Token:
         if self.check(token_type):
             return self.advance()
-        raise ParseError(f"Line {self.peek().line}, Col {self.peek().column}: {message} (got '{self.peek().lexeme}')")
+        if token_type == TokenType.IDENTIFIER:
+            IDENT_KEYWORDS = (
+                TokenType.MAIN, TokenType.HEADER, TokenType.FOOTER, TokenType.SECTION,
+                TokenType.CONTAINER, TokenType.NAV, TokenType.PANEL, TokenType.CARD,
+                TokenType.LABEL, TokenType.BUTTON, TokenType.ROW_PROP, TokenType.COL,
+                TokenType.LAYOUT, TokenType.ALIGN, TokenType.JUSTIFY, TokenType.DIRECTION, TokenType.FLEX_PROP
+            )
+            if self.peek().type in IDENT_KEYWORDS:
+                return self.advance()
+        hint = ""
+        got = self.peek().lexeme
+        if got == "def":
+            hint = " Hint: OS-Lang uses 'fn' for function definitions (e.g. 'fn name(arg: type) -> RetType:')."
+        elif got in ("var", "const"):
+            hint = " Hint: Variable declarations must use 'let' or 'let mut' (e.g. 'let x: int = 5')."
+        elif got == "{":
+            hint = " Hint: OS-Lang uses Python-style indentation without curly braces."
+        raise ParseError(f"Line {self.peek().line}, Col {self.peek().column}: {message} (got '{got}').{hint}")
 
     def skip_newlines(self):
         while self.match(TokenType.NEWLINE):
@@ -198,6 +220,39 @@ class Parser:
             else:
                 raise ParseError(f"Line {tag.line}: Unknown decorator @{tag.lexeme}")
 
+        if self.check(TokenType.IDENTIFIER):
+            lexeme = self.peek().lexeme
+            if lexeme == "def":
+                raise ParseError(f"Line {self.peek().line}, Col {self.peek().column}: Unknown keyword 'def'. Hint: Use 'fn' for function definitions (e.g. 'fn name() -> void:').")
+            elif lexeme in ("var", "const"):
+                raise ParseError(f"Line {self.peek().line}, Col {self.peek().column}: Unknown keyword '{lexeme}'. Hint: Use 'let' or 'let mut' for variable declarations.")
+
+        if self.check(TokenType.IDENTIFIER) and self.peek().lexeme == "import_c":
+            self.advance()
+            header = self.consume(TokenType.STRING, "Expect C header filename string.")
+            return ast.ImportStatement(module_name=f"c:{header.lexeme}")
+
+        if self.match(TokenType.GUIAPP):
+            return self.parse_guiapp_declaration()
+
+        gui_tokens = (
+            TokenType.WINDOW, TokenType.HEADER, TokenType.FOOTER, TokenType.SECTION,
+            TokenType.CONTAINER, TokenType.MAIN, TokenType.NAV, TokenType.SIDEBAR,
+            TokenType.NAVBAR, TokenType.PANEL, TokenType.CARD, TokenType.LABEL,
+            TokenType.BUTTON, TokenType.INPUT, TokenType.TEXTAREA
+        )
+        for gt in gui_tokens:
+            if self.check(gt):
+                elem_type = self.advance().lexeme
+                return self.parse_gui_element(elem_type)
+
+        if self.match(TokenType.THEME):
+            theme_name = self.consume(TokenType.IDENTIFIER, "Expect theme name.")
+            self.consume(TokenType.COLON, "Expect ':' after theme name.")
+            self.skip_newlines()
+            body = self.parse_block()
+            return ast.GuiWindowDeclaration(name=ast.Identifier(f"theme_{theme_name.lexeme}"), properties=[], body=body)
+
         if self.match(TokenType.FN):
             return self.parse_function_declaration()
 
@@ -249,6 +304,63 @@ class Parser:
         if not self.is_at_end() and self.peek().type not in (TokenType.DEDENT, TokenType.EOF):
             self.match(TokenType.NEWLINE)
         return expr
+
+    def parse_guiapp_declaration(self) -> ast.GuiAppDeclaration:
+        name = self.consume(TokenType.IDENTIFIER, "Expect app name after 'guiapp'.")
+        self.consume(TokenType.COLON, "Expect ':' after app name.")
+        self.consume(TokenType.NEWLINE, "Expect newline after ':'.")
+        self.consume(TokenType.INDENT, "Expect block indentation.")
+        
+        properties = []
+        body_statements = []
+        
+        while not self.check(TokenType.DEDENT) and not self.is_at_end():
+            self.skip_newlines()
+            if self.check(TokenType.DEDENT):
+                break
+            
+            if self.peek_next().type == TokenType.COLON and self.peek().type not in (TokenType.NEWLINE, TokenType.INDENT, TokenType.DEDENT):
+                key = self.advance().lexeme
+                self.consume(TokenType.COLON, "Expect ':' after property key.")
+                val_node = self.parse_expression()
+                properties.append((key, val_node))
+                self.match(TokenType.NEWLINE)
+            elif self.check(TokenType.STATE):
+                self.advance()
+                body_statements.append(self.parse_variable_declaration(is_shared=False))
+            else:
+                body_statements.append(self.parse_statement())
+                
+        self.consume(TokenType.DEDENT, "Expect dedent at end of guiapp.")
+        return ast.GuiAppDeclaration(name=ast.Identifier(name.lexeme), properties=properties, body=ast.Block(statements=body_statements))
+
+    def parse_gui_element(self, element_type: str) -> ast.GuiLayoutElement:
+        name_str = f"{element_type}_{self.current}"
+        if self.check(TokenType.IDENTIFIER):
+            name_str = self.advance().lexeme
+        self.consume(TokenType.COLON, f"Expect ':' after '{element_type}'.")
+        self.consume(TokenType.NEWLINE, "Expect newline after ':'.")
+        
+        properties = []
+        children = []
+        
+        if self.match(TokenType.INDENT):
+            while not self.check(TokenType.DEDENT) and not self.is_at_end():
+                self.skip_newlines()
+                if self.check(TokenType.DEDENT):
+                    break
+                
+                if self.peek_next().type == TokenType.COLON and self.peek().type not in (TokenType.NEWLINE, TokenType.INDENT, TokenType.DEDENT):
+                    prop_name = self.advance().lexeme
+                    self.consume(TokenType.COLON, "Expect ':' after property name.")
+                    val = self.parse_expression()
+                    properties.append((prop_name, val))
+                    self.match(TokenType.NEWLINE)
+                else:
+                    children.append(self.parse_statement())
+            self.consume(TokenType.DEDENT, f"Expect dedent at end of {element_type}.")
+            
+        return ast.GuiLayoutElement(element_type=element_type, name=ast.Identifier(name_str), properties=properties, body=ast.Block(statements=children))
 
     def parse_block(self) -> ast.Block:
         self.consume(TokenType.COLON, "Expect ':' before block.")
@@ -717,6 +829,12 @@ class Parser:
         return ast.FunctionCall(callee=callee, arguments=arguments)
 
     def parse_primary(self) -> ast.ASTNode:
+        # Grouped expression: (expr)
+        if self.match(TokenType.LPAREN):
+            expr = self.parse_expression()
+            self.consume(TokenType.RPAREN, "Expect ')' after expression.")
+            return expr
+
         # sizeof(Type)
         if self.match(TokenType.SIZEOF):
             self.consume(TokenType.LPAREN, "Expect '(' after sizeof.")
@@ -753,14 +871,15 @@ class Parser:
             self.consume(TokenType.RBRACKET, "Expect ']' after array elements.")
             return ast.ArrayLiteral(elements=elements)
 
-        if self.match(TokenType.IDENTIFIER):
+        if self.match(TokenType.IDENTIFIER, TokenType.ROW_PROP, TokenType.COL, TokenType.ALIGN, TokenType.JUSTIFY, TokenType.DIRECTION, TokenType.LAYOUT, TokenType.FLEX_PROP):
             name = self.previous().lexeme
 
             # ── Phase 9: OS intrinsic calls ──────────────────────────────
             OS_INTRINSICS = {"halt", "cli", "sti", "rdtsc", "cpuid",
                               "outb", "outw", "outl", "inb", "inw", "inl",
                               "memory_barrier", "volatile_load", "volatile_store",
-                              "atomic_cmpxchg", "atomic_xchg", "atomic_add", "atomic_sub"}
+                              "atomic_cmpxchg", "atomic_xchg", "atomic_add", "atomic_sub",
+                              "vga_write", "draw_cursor", "draw_pixel"}
             if name in OS_INTRINSICS and self.check(TokenType.LPAREN):
                 self.advance()  # consume '('
                 arguments = []

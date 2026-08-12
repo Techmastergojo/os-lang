@@ -1,30 +1,35 @@
 # OS Language Coding Rules
 
-If you are asked to write or edit `.os` files, or to work with the custom OS development language in this repository, strictly adhere to these rules:
+If you are asked to write or edit `.os` or `.osext` files, or to work with the custom OS development language in this repository, strictly adhere to these rules (also see LLM_RULES.md for full specs):
 
 1. **Python-like Syntax**: 
    - No curly braces `{}`. Use indentation to denote blocks.
-   - No semicolons `;` at the end of lines.
-   - Function definitions use `fn name(args) -> RetType:`
+   - No semicolons `;` at the end of lines (except inside array type declarations `[u8; 16]`).
+   - Function definitions MUST use `fn name(args) -> RetType:`. NEVER use `def`.
 
 2. **Types**:
    - Integers: `u8`, `u16`, `u32`, `u64`, `i8`, `i16`, `i32`, `i64`, `int`
-   - Pointers: `ptr` or `ptr[u32]`
+   - Pointers: `ptr` or `ptr[u32]` or `ptr[u8]`
    - Strings/Chars: `str`, `char`
 
 3. **Variables**:
-   - Variables are immutable by default: `let x: u32 = 5`
-   - For mutable variables: `let mut y: u32 = 10`
+   - Variables MUST use `let`: `let x: u32 = 5`
+   - Mutable variables MUST use `let mut`: `let mut y: u32 = 10`
+   - NEVER omit `let` when creating new variables.
 
 4. **Safety & Hardware**:
-   - Any function performing hardware I/O, manipulating pointers, using inline assembly, or atomics MUST be decorated with `@unsafe`.
-   - Inline assembly syntax: `asm("instruction")`
-   - Hardware-specific memory-mapped structs MUST use the `hwmap` keyword instead of `struct`. E.g., `hwmap Registers:`.
+   - Any function performing hardware I/O, pointer access, inline assembly, or atomics MUST use `@unsafe`.
+   - Hardware-specific memory-mapped structs MUST use `hwmap` (e.g., `hwmap Registers:`).
 
-5. **Decorators**:
-   - `@unsafe`: Explicitly declare a function unsafe.
-   - `@naked`: Remove standard LLVM function prologue and epilogue (useful for context switching).
-   - `@interrupt(n)`: Bind an interrupt vector.
-   - `@entry`: Bootloader/Kernel entry point.
+5. **Built-in Ultra-Short Driver & Graphics Helpers**:
+   - `inb(port)`, `outb(port, val)`, `inw(port)`, `outw(port, val)`, `cli()`, `sti()`, `halt()`
+   - `vga_write(x, y, char, color)`: 1-line VGA write to `0xB8000`.
+   - `draw_cursor(x, y, color)`: 1-line mouse cursor drawing.
+   - `draw_pixel(x, y, color)`: 1-line pixel rendering.
 
-Follow these rules carefully to ensure the emitted `.os` code is syntactically and semantically valid for the compiler in this repository.
+6. **Decorators**:
+   - `@unsafe`, `@naked`, `@interrupt(vector)`, `@entry`, `@syscall(num)`, `@driver`, `@noreturn`
+   - LEX Decorators: `@meta(...)`, `@extend`, `@override(target="...")`, `@hook(...)`, `@new`, `@app`, `@service`
+
+Follow these rules carefully to ensure emitted `.os` code is syntactically and semantically valid for the compiler.
+

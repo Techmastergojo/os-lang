@@ -82,6 +82,12 @@ class TokenType(Enum):
 
     # --- Layout Containers ---
     WINDOW = auto()         # window Main:
+    HEADER = auto()         # header top:
+    FOOTER = auto()         # footer bottom:
+    SECTION = auto()        # section content:
+    CONTAINER = auto()      # container wrapper:
+    MAIN = auto()           # main center:
+    NAV = auto()            # nav navigation:
     PANEL = auto()          # panel layout:
     SCROLLVIEW = auto()     # scrollview content:
     TABS = auto()           # tabs main_tabs:

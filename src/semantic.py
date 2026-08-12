@@ -53,6 +53,9 @@ class SemanticAnalyzer:
         "atomic_xchg":    (["ptr", "u64"], "u64"),
         "atomic_add":     (["ptr", "u64"], "u64"),
         "atomic_sub":     (["ptr", "u64"], "u64"),
+        "vga_write":      (["int", "int", "u8", "u8"], "void"),
+        "draw_cursor":    (["int", "int", "u8"], "void"),
+        "draw_pixel":     (["int", "int", "u32"], "void"),
     }
 
     def __init__(self):
@@ -196,6 +199,16 @@ class SemanticAnalyzer:
         return "void"
 
     def analyze_Identifier(self, node: ast.Identifier) -> str:
+        LAYOUT_KEYWORDS = {
+            "center", "space_between", "space_around", "space_evenly", "start", "end",
+            "stretch", "row", "column", "flex", "grid", "stack", "absolute", "relative",
+            "fixed", "sticky", "auto", "none"
+        }
+        if node.name in LAYOUT_KEYWORDS:
+            return "str"
+        if node.name == "pass":
+            return "void"
+
         symbol = self.current_scope.resolve(node.name)
         if not symbol:
             raise SemanticError(f"Variable '{node.name}' is not defined.")
@@ -283,10 +296,10 @@ class SemanticAnalyzer:
         These are safe to call anywhere — they're guaranteed semantics, not
         raw memory ops. outb/inb however still require @unsafe context.
         """
-        port_intrinsics = {"outb", "outw", "outl", "inb", "inw", "inl"}
+        port_intrinsics = {"outb", "outw", "outl", "inb", "inw", "inl", "vga_write", "draw_cursor", "draw_pixel"}
         if node.name in port_intrinsics and not self.in_unsafe_block:
             raise SemanticError(
-                f"Memory safety: I/O intrinsic '{node.name}()' must be inside an @unsafe function.")
+                f"Memory safety: Hardware intrinsic '{node.name}()' must be inside an @unsafe function or block.")
 
         spec = self.OS_INTRINSICS.get(node.name)
         if spec is None:
@@ -416,6 +429,13 @@ class SemanticAnalyzer:
 
     def analyze_MemberAccess(self, node: ast.MemberAccess) -> str:
         obj_type = self.analyze(node.object)
+
+        if obj_type.startswith("ptr[") and obj_type.endswith("]"):
+            obj_type = obj_type[4:-1]
+        elif obj_type.startswith("*const ") or obj_type.startswith("*mut "):
+            obj_type = obj_type.split(" ", 1)[1]
+        elif obj_type.startswith("*"):
+            obj_type = obj_type[1:]
 
         # hwmap / hardware access — allow anything
         if obj_type in ("hwmap", "unknown"):
@@ -576,4 +596,29 @@ class SemanticAnalyzer:
         """Register all functions inside an extern block."""
         for decl in node.declarations:
             self.analyze_ExternDeclaration(decl)
+        return "void"
+
+    # ==========================================
+    # OsGUI Layout Visitors
+    # ==========================================
+
+    def analyze_GuiAppDeclaration(self, node: ast.GuiAppDeclaration) -> str:
+        for key, val_node in node.properties:
+            self.analyze(val_node)
+        if node.body:
+            self.analyze(node.body)
+        return "void"
+
+    def analyze_GuiWindowDeclaration(self, node: ast.GuiWindowDeclaration) -> str:
+        for key, val_node in node.properties:
+            self.analyze(val_node)
+        if node.body:
+            self.analyze(node.body)
+        return "void"
+
+    def analyze_GuiLayoutElement(self, node: ast.GuiLayoutElement) -> str:
+        for key, val_node in node.properties:
+            self.analyze(val_node)
+        if node.body:
+            self.analyze(node.body)
         return "void"

@@ -263,6 +263,29 @@ class AsmBlock(ASTNode):
     args: List[tuple]     # [("in", ASTNode), ("out", ASTNode), ...]
 
 # ==========================================
+# OsGUI Web-Style Layout Nodes
+# ==========================================
+
+@dataclass
+class GuiAppDeclaration(ASTNode):
+    name: 'Identifier'
+    properties: List[tuple]
+    body: Block
+
+@dataclass
+class GuiWindowDeclaration(ASTNode):
+    name: 'Identifier'
+    properties: List[tuple]
+    body: Block
+
+@dataclass
+class GuiLayoutElement(ASTNode):
+    element_type: str         # "header", "footer", "main", "sidebar", "section", "container", "label", "button", etc.
+    name: 'Identifier'
+    properties: List[tuple]
+    body: Optional[Block] = None
+
+# ==========================================
 # Root Node
 # ==========================================
 
